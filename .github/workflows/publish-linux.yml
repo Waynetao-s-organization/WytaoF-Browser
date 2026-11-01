@@ -64,6 +64,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ant-browser-linux-${{ matrix.arch }}
+          retention-days: 1
           path: |
             publish/output/*_${{ matrix.arch }}.deb
             publish/output/*-linux-${{ matrix.arch }}.tar.gz
