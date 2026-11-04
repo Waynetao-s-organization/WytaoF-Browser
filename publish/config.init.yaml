@@ -45,7 +45,15 @@ browser:
     - --disable-sync
     - --no-first-run
   default_bookmarks: []
-  cores: []
+  cores:
+    - core_id: core-Chrom-144
+      core_name: Chrome Chrom-144
+      core_path: chrome\Chrom-144
+      is_default: false
+    - core_id: core-Chrom-150
+      core_name: Chrome Chrom-150
+      core_path: chrome\Chrom-150
+      is_default: true
   proxies: []
   profiles: []
 launch_server:

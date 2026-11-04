@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.1 - 2026-11-04
+
+- 更新内置内核：Windows 安装包改为内置 Chrom-144（144.0.7559.132）和 Chrom-150（150.0.7871.186），去掉 Chrom-139、Chrom-142
+- 全新安装默认使用 Chrom-150；覆盖安装保留原有配置和默认内核，新内核需在「内核管理 → 新增内核」里登记路径 `chrome\Chrom-150`
+
 ## 1.2.0 - 2026-05-09
 
 - 重点升级接口调用：Launch API 补齐实例增删改查、按 code / selector 启动、runtime session / status / stop 和统一 CDP 入口，方便外部系统直接调用浏览器能力
