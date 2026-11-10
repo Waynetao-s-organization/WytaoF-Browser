@@ -265,6 +265,30 @@ export function BrowserListSettingsModal({
             />
           </div>
         </FormItem>
+        <FormItem label="多窗口识别">
+          <div className="rounded-lg border border-[var(--color-border-default)] divide-y divide-[var(--color-border-default)]">
+            <div className="flex items-center justify-between px-3 py-2">
+              <div>
+                <p className="text-sm text-[var(--color-text-primary)]">启动时打开环境检测页</p>
+                <p className="text-xs text-[var(--color-text-muted)] mt-1">在界面上手动启动实例时，第一个标签页显示实例名称、出口 IP、国家、泄露检测和基础指纹。接口和脚本启动的实例不打开。</p>
+              </div>
+              <Switch
+                checked={!settings.startPageDisabled}
+                onChange={(checked) => onSettingsChange({ startPageDisabled: !checked })}
+              />
+            </div>
+            <div className="flex items-center justify-between px-3 py-2">
+              <div>
+                <p className="text-sm text-[var(--color-text-primary)]">窗口上显示实例名称</p>
+                <p className="text-xs text-[var(--color-text-muted)] mt-1">浏览器右上角的账户名称改成实例名称，任务栏和 Alt+Tab 里的窗口标题前面加上【实例名称】。</p>
+              </div>
+              <Switch
+                checked={!settings.windowTitleDisabled}
+                onChange={(checked) => onSettingsChange({ windowTitleDisabled: !checked })}
+              />
+            </div>
+          </div>
+        </FormItem>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormItem label="启动就绪超时（毫秒）" hint="默认 3000，慢机器可调到 5000-10000">
             <Input

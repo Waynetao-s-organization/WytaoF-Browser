@@ -60,6 +60,9 @@ func (a *App) startBrowserProfileWithPlan(input browserStartInput, plan *browser
 				logger.F("args", strings.Join(plan.args, " ")),
 			)
 			a.emitBrowserInstanceStarted(profile, false)
+			if plan.startPageURL != "" && plan.restoreLastSession {
+				go a.ensureStartPageTab(stableDebugPort, plan.startPageURL, 0)
+			}
 
 			go a.waitBrowserProcess(input.ProfileID, monitor)
 			return profile, nil
@@ -112,6 +115,9 @@ func (a *App) startBrowserProfileWithPlan(input browserStartInput, plan *browser
 		a.emitBrowserInstanceStarted(profile, false)
 		go a.waitBrowserProcess(input.ProfileID, monitor)
 		go a.waitBrowserDebugReadyAsync(input.ProfileID, plan.assignedDebugPort, browserAsyncDebugAttachTimeout)
+		if plan.startPageURL != "" && plan.restoreLastSession {
+			go a.ensureStartPageTab(plan.assignedDebugPort, plan.startPageURL, browserAsyncDebugAttachTimeout)
+		}
 	}
 
 	if pendingStartNotice != "" {

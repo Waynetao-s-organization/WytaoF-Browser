@@ -2,6 +2,7 @@ package backend
 
 import (
 	"ant-chrome/backend/internal/config"
+	"database/sql"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -64,6 +65,38 @@ func (a *App) backupMergeProxiesFile(payloadRoot string, resetFirst bool, stats 
 	}
 
 	return config.SaveProxies(dstPath, merged)
+}
+
+func backupBookmarkInsertSQL(tx *sql.Tx, resetFirst bool) (string, error) {
+	columns := []string{"name", "url"}
+	values := []string{"s.name", "s.url"}
+	optional := []struct {
+		column   string
+		fallback string
+	}{
+		{column: "open_on_start", fallback: "0"},
+		{column: "open_tags", fallback: "'[]'"},
+		{column: "open_group_ids", fallback: "'[]'"},
+	}
+	for _, item := range optional {
+		exists, err := backupSrcColumnExists(tx, "browser_bookmarks", item.column)
+		if err != nil {
+			return "", err
+		}
+		if exists {
+			columns = append(columns, item.column)
+			values = append(values, fmt.Sprintf("COALESCE(s.%s,%s)", item.column, item.fallback))
+		}
+	}
+	columns = append(columns, "sort_order")
+	values = append(values, "s.sort_order")
+
+	sqlText := fmt.Sprintf("INSERT INTO browser_bookmarks (%s)\nSELECT %s\nFROM src.browser_bookmarks s",
+		strings.Join(columns, ", "), strings.Join(values, ", "))
+	if !resetFirst {
+		sqlText += "\nWHERE NOT EXISTS (\n  SELECT 1 FROM browser_bookmarks t WHERE lower(t.url) = lower(s.url)\n)"
+	}
+	return sqlText, nil
 }
 
 func backupFindDatabaseFile(payloadRoot string) string {
@@ -196,22 +229,9 @@ WHERE NOT EXISTS (
 			sqlText = item.insertSafe
 		}
 		if item.name == "browser_bookmarks" {
-			hasOpenOnStart, err := backupSrcColumnExists(tx, item.name, "open_on_start")
+			sqlText, err = backupBookmarkInsertSQL(tx, resetFirst)
 			if err != nil {
 				return err
-			}
-			if hasOpenOnStart {
-				if resetFirst {
-					sqlText = `INSERT INTO browser_bookmarks (name, url, open_on_start, sort_order)
-SELECT name, url, COALESCE(open_on_start,0), sort_order FROM src.browser_bookmarks`
-				} else {
-					sqlText = `INSERT INTO browser_bookmarks (name, url, open_on_start, sort_order)
-SELECT s.name, s.url, COALESCE(s.open_on_start,0), s.sort_order
-FROM src.browser_bookmarks s
-WHERE NOT EXISTS (
-  SELECT 1 FROM browser_bookmarks t WHERE lower(t.url) = lower(s.url)
-)`
-				}
 			}
 		}
 		res, err := tx.Exec(sqlText)

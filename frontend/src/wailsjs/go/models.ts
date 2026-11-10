@@ -890,6 +890,8 @@ export namespace browser {
 	    defaultLaunchArgs: string[];
 	    defaultStartUrls: string[];
 	    restoreLastSession: boolean;
+	    startPageDisabled: boolean;
+	    windowTitleDisabled: boolean;
 	    startReadyTimeoutMs: number;
 	    startStableWindowMs: number;
 	
@@ -904,6 +906,8 @@ export namespace browser {
 	        this.defaultLaunchArgs = source["defaultLaunchArgs"];
 	        this.defaultStartUrls = source["defaultStartUrls"];
 	        this.restoreLastSession = source["restoreLastSession"];
+	        this.startPageDisabled = source["startPageDisabled"];
+	        this.windowTitleDisabled = source["windowTitleDisabled"];
 	        this.startReadyTimeoutMs = source["startReadyTimeoutMs"];
 	        this.startStableWindowMs = source["startStableWindowMs"];
 	    }
@@ -935,6 +939,8 @@ export namespace config {
 	    name: string;
 	    url: string;
 	    openOnStart: boolean;
+	    openTags: string[];
+	    openGroupIds: string[];
 	
 	    static createFrom(source: any = {}) {
 	        return new BrowserBookmark(source);
@@ -945,6 +951,8 @@ export namespace config {
 	        this.name = source["name"];
 	        this.url = source["url"];
 	        this.openOnStart = source["openOnStart"];
+	        this.openTags = source["openTags"];
+	        this.openGroupIds = source["openGroupIds"];
 	    }
 	}
 	export class BrowserCore {

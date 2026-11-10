@@ -1,0 +1,892 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; connect-src https: http:">
+<title>__WYTAOF_TITLE__</title>
+<link rel="icon" id="favicon" href="data:,">
+<style>
+:root {
+  --bg: #f4f6fa;
+  --card: #ffffff;
+  --line: #e6e9f0;
+  --text: #1c2333;
+  --muted: #6b7386;
+  --soft: #f1f3f8;
+  --ok: #16a34a;
+  --warn: #d97706;
+  --bad: #dc2626;
+  --info: #2563eb;
+  --accent: #1f2a44;
+  --shadow: 0 1px 2px rgba(16, 24, 40, .06), 0 4px 14px rgba(16, 24, 40, .05);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #12151c;
+    --card: #1b2029;
+    --line: #2a303c;
+    --text: #e8ebf2;
+    --muted: #9aa3b5;
+    --soft: #232935;
+    --accent: #dfe5f3;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4);
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.6 "Segoe UI", "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.page { max-width: 1120px; margin: 0 auto; padding: 24px 20px 40px; }
+.hero {
+  display: flex; align-items: center; gap: 18px;
+  background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+  padding: 20px 22px; box-shadow: var(--shadow);
+}
+.avatar {
+  flex: 0 0 auto; width: 64px; height: 64px; border-radius: 16px;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 24px; font-weight: 700; letter-spacing: .5px;
+  background: #4b5563;
+}
+.hero-main { flex: 1 1 auto; min-width: 0; }
+.hero-label { font-size: 12px; color: var(--muted); }
+.hero-name { font-size: 28px; font-weight: 700; line-height: 1.25; word-break: break-all; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 4px; max-width: 100%;
+  padding: 2px 10px; border-radius: 999px; font-size: 12px;
+  background: var(--soft); color: var(--muted);
+}
+.chip b { color: var(--text); font-weight: 600; word-break: break-all; }
+.hero-side { flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+.overall {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 14px; border-radius: 999px; font-weight: 600;
+  background: var(--soft);
+}
+.actions { display: flex; gap: 8px; }
+button {
+  font: inherit; cursor: pointer; border-radius: 10px; padding: 6px 14px;
+  border: 1px solid var(--line); background: var(--card); color: var(--text);
+}
+button:hover { background: var(--soft); }
+button.primary { background: var(--accent); color: var(--card); border-color: var(--accent); }
+button.primary:hover { opacity: .9; }
+button:disabled { opacity: .55; cursor: default; }
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 16px; }
+.card {
+  background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+  padding: 16px 20px 10px; box-shadow: var(--shadow); min-width: 0;
+}
+.card.wide { grid-column: 1 / -1; }
+.card h2 { margin: 0 0 6px; font-size: 15px; font-weight: 700; }
+.card .hint { margin: 0 0 8px; font-size: 12px; color: var(--muted); }
+.rows { margin: 0; }
+.row {
+  display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 12px;
+  padding: 8px 0; border-top: 1px solid var(--line);
+}
+.row:first-child { border-top: 0; }
+.row dt { color: var(--muted); }
+.row dd { margin: 0; min-width: 0; display: flex; align-items: flex-start; gap: 8px; }
+.row .value { min-width: 0; word-break: break-word; }
+.row .value .main { font-weight: 600; }
+.row .value .note { display: block; font-size: 12px; color: var(--muted); font-weight: 400; }
+.row .act { flex: 0 0 auto; margin-left: auto; padding: 2px 12px; font-size: 12px; border-radius: 8px; white-space: nowrap; }
+.fp .rows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 28px; }
+.fp .row.full { grid-column: 1 / -1; }
+.dot { flex: 0 0 auto; width: 9px; height: 9px; border-radius: 50%; margin-top: 7px; background: #c3c9d6; }
+.overall .dot { margin-top: 0; }
+.dot.ok { background: var(--ok); }
+.dot.warn { background: var(--warn); }
+.dot.bad { background: var(--bad); }
+.dot.info { background: var(--info); }
+.dot.wait { background: #c3c9d6; animation: pulse 1s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
+.mono { font-family: Consolas, "Cascadia Mono", "Courier New", monospace; font-size: 13px; }
+details { margin: 2px 0 8px; }
+summary { cursor: pointer; color: var(--muted); font-size: 13px; padding: 4px 0; }
+pre {
+  margin: 8px 0 4px; padding: 10px 12px; border-radius: 10px; background: var(--soft);
+  white-space: pre-wrap; word-break: break-all; font-size: 12px;
+}
+footer { margin-top: 18px; font-size: 12px; color: var(--muted); line-height: 1.8; }
+@media (max-width: 860px) {
+  .grid { grid-template-columns: minmax(0, 1fr); }
+  .fp .rows { grid-template-columns: minmax(0, 1fr); }
+  .hero { flex-wrap: wrap; }
+  .hero-side { align-items: flex-start; width: 100%; flex-direction: row; justify-content: space-between; }
+}
+</style>
+</head>
+<body>
+<script id="wytaof-data" type="application/json">__WYTAOF_DATA__</script>
+<div class="page">
+  <header class="hero">
+    <div class="avatar" id="avatar"></div>
+    <div class="hero-main">
+      <div class="hero-label">当前实例</div>
+      <div class="hero-name" id="profile-name"></div>
+      <div class="chips" id="profile-chips"></div>
+    </div>
+    <div class="hero-side">
+      <div class="overall"><span class="dot wait" id="overall-dot"></span><span id="overall-text">正在检测</span></div>
+      <div class="actions">
+        <button type="button" id="btn-copy">复制结果</button>
+        <button type="button" class="primary" id="btn-rerun">重新检测</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="grid">
+    <section class="card">
+      <h2>代理与出口 IP</h2>
+      <p class="hint" id="hint-ip">网站看到的是下面这个出口，不是这台电脑的真实 IP。</p>
+      <dl class="rows" id="rows-ip"></dl>
+    </section>
+    <section class="card">
+      <h2>泄露与一致性检测</h2>
+      <p class="hint">检查有没有绕过代理暴露真实 IP，以及时区、语言和出口对不对得上。</p>
+      <dl class="rows" id="rows-leak"></dl>
+    </section>
+    <section class="card wide fp">
+      <h2>基础指纹</h2>
+      <p class="hint">网站用脚本能读到的浏览器信息。</p>
+      <dl class="rows" id="rows-fp"></dl>
+    </section>
+    <section class="card wide">
+      <details>
+        <summary>这个实例配置的指纹参数</summary>
+        <pre id="fp-args"></pre>
+      </details>
+    </section>
+  </div>
+
+  <footer>
+    <div id="footer-meta"></div>
+    <div>本页由 WytaoF Browser 在这台电脑上生成，只存在这个实例自己的数据目录里。检测时会访问 Cloudflare、ipinfo.io、ip.sb、ip-api.com 和公共 STUN 服务器；前三个都查不到出口信息时，再试 geojs.io 和 ipwho.is。</div>
+    <div>不想每次启动都打开，可以在 WytaoF Browser 的「实例列表 → 基础配置」里关掉「启动时打开环境检测页」。</div>
+  </footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var DATA = {};
+  try { DATA = JSON.parse(document.getElementById('wytaof-data').textContent || '{}') || {}; } catch (e) { DATA = {}; }
+
+  var LEVEL_RANK = { ok: 0, info: 0, wait: 0, warn: 1, bad: 2 };
+  var rowState = {};
+  var runSeq = 0;
+
+  function $(id) { return document.getElementById(id); }
+  function el(tag, cls, text) {
+    var node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (text !== undefined && text !== null) node.textContent = String(text);
+    return node;
+  }
+
+  var ROWS = {
+    ip: [
+      ['status', '连接状态'], ['ip', '出口 IP'], ['country', '国家 / 地区'], ['city', '城市'],
+      ['org', '运营商'], ['iptype', 'IP 类型'], ['sites', '多站点比对'], ['proxy', '配置的代理']
+    ],
+    leak: [
+      ['webrtc', 'WebRTC'], ['dns', 'DNS'], ['tz', '时区'], ['lang', '语言'], ['webdriver', '自动化标记']
+    ],
+    fp: [
+      ['ua', 'User-Agent', true], ['brands', '浏览器版本'], ['platform', '操作系统'],
+      ['fplang', '语言'], ['fptz', '时区'], ['screen', '屏幕'], ['viewport', '窗口'],
+      ['cpu', 'CPU 核数'], ['memory', '内存'], ['touch', '触摸点'], ['dnt', 'Do Not Track'],
+      ['audio', '音频指纹'], ['glvendor', 'WebGL 厂商'],
+      ['glrenderer', 'WebGL 渲染器', true], ['canvas', 'Canvas 读取', true]
+    ]
+  };
+
+  function buildRows() {
+    Object.keys(ROWS).forEach(function (group) {
+      var box = $('rows-' + group);
+      box.textContent = '';
+      ROWS[group].forEach(function (spec) {
+        var row = el('div', 'row' + (spec[2] ? ' full' : ''));
+        row.appendChild(el('dt', '', spec[1]));
+        var dd = el('dd');
+        var dot = el('span', 'dot wait');
+        var value = el('span', 'value');
+        dd.appendChild(dot);
+        dd.appendChild(value);
+        row.appendChild(dd);
+        box.appendChild(row);
+        rowState[spec[0]] = { label: spec[1], group: group, dot: dot, value: value, level: 'wait', text: '', note: '' };
+      });
+    });
+  }
+
+  function setRow(key, level, text, note, mono) {
+    var state = rowState[key];
+    if (!state) return;
+    state.level = level;
+    state.text = text || '';
+    state.note = note || '';
+    state.dot.className = 'dot ' + level;
+    state.value.textContent = '';
+    Array.from(state.value.parentNode.querySelectorAll('.act')).forEach(function (node) { node.remove(); });
+    var main = el('span', 'main' + (mono ? ' mono' : ''), state.text);
+    state.value.appendChild(main);
+    if (state.note) state.value.appendChild(el('span', 'note', state.note));
+  }
+
+  function addRowAction(key, label, handler) {
+    var state = rowState[key];
+    if (!state) return;
+    var button = el('button', 'act', label);
+    button.type = 'button';
+    button.addEventListener('click', handler);
+    state.value.parentNode.appendChild(button);
+  }
+
+  function resetRows() {
+    Object.keys(rowState).forEach(function (key) { setRow(key, 'wait', '检测中'); });
+  }
+
+  function updateOverall(finished) {
+    var worst = 0, warn = 0, bad = 0;
+    ['status', 'sites', 'webrtc', 'dns', 'tz', 'lang', 'webdriver', 'canvas'].forEach(function (key) {
+      var level = rowState[key] ? rowState[key].level : 'ok';
+      var rank = LEVEL_RANK[level] || 0;
+      if (rank > worst) worst = rank;
+      if (level === 'warn') warn++;
+      if (level === 'bad') bad++;
+    });
+    var dot = $('overall-dot'), text = $('overall-text');
+    if (!finished) { dot.className = 'dot wait'; text.textContent = '正在检测'; return; }
+    if (worst === 2) { dot.className = 'dot bad'; text.textContent = '有 ' + (bad + warn) + ' 项需要处理'; }
+    else if (worst === 1) { dot.className = 'dot warn'; text.textContent = '有 ' + warn + ' 项需要留意'; }
+    else { dot.className = 'dot ok'; text.textContent = '环境检测通过'; }
+  }
+
+  function hashText(text) {
+    var h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+    for (var i = 0; i < text.length; i++) {
+      var ch = text.charCodeAt(i);
+      h1 = Math.imul(h1 ^ ch, 2654435761);
+      h2 = Math.imul(h2 ^ ch, 1597334677);
+    }
+    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+    return ((h2 >>> 0).toString(16).padStart(8, '0') + (h1 >>> 0).toString(16).padStart(8, '0'));
+  }
+
+  function shortLabel(name) {
+    var chars = Array.from(String(name || '').trim());
+    if (chars.length === 0) return '?';
+    var tail = /(\d{1,2})$/.exec(chars.join(''));
+    var first = chars[0].toUpperCase();
+    if (tail && chars.length > tail[1].length) return first + tail[1];
+    return chars.length > 1 ? first + chars[1] : first;
+  }
+
+  function accentColor(seed) {
+    var hue = parseInt(hashText(String(seed || 'wytaof')).slice(0, 6), 16) % 360;
+    return 'hsl(' + hue + ' 58% 42%)';
+  }
+
+  function escapeXml(text) {
+    return String(text).replace(/[<>&"']/g, function (c) {
+      return { '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&apos;' }[c];
+    });
+  }
+
+  function renderIdentity() {
+    var name = DATA.profileName || '未命名实例';
+    var label = shortLabel(name);
+    var color = accentColor((DATA.profileId || '') + '|' + name);
+    document.title = name + ' · 环境检测';
+    $('profile-name').textContent = name;
+    var avatar = $('avatar');
+    avatar.textContent = label;
+    avatar.style.background = color;
+
+    var fontSize = Array.from(label).length > 2 ? 24 : 30;
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">' +
+      '<rect width="64" height="64" rx="14" fill="' + color + '"/>' +
+      '<text x="32" y="33" font-size="' + fontSize + '" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-weight="700" fill="#fff" text-anchor="middle" dominant-baseline="central">' +
+      escapeXml(label) + '</text></svg>';
+    $('favicon').href = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+
+    var chips = $('profile-chips');
+    chips.textContent = '';
+    function chip(title, value) {
+      if (!value) return;
+      var node = el('span', 'chip', title + ' ');
+      node.appendChild(el('b', '', value));
+      chips.appendChild(node);
+    }
+    (DATA.tags || []).forEach(function (tag) { chip('标签', tag); });
+    chip('分组', DATA.groupName);
+    chip('内核', [DATA.coreName, DATA.coreVersion].filter(Boolean).join(' · '));
+    chip('快捷打开码', DATA.launchCode);
+
+    if (DATA.proxyDirect) {
+      $('hint-ip').textContent = '这个实例没有走代理，网站看到的就是这台电脑自己的出口 IP。';
+    }
+
+    var args = (DATA.fingerprintArgs || []).filter(Boolean);
+    $('fp-args').textContent = args.length ? args.join('\n') : '没有单独配置，使用内核默认值。';
+
+    var meta = [];
+    if (DATA.appName) meta.push(DATA.appName + (DATA.appVersion ? ' ' + DATA.appVersion : ''));
+    if (DATA.generatedAt) {
+      var stamp = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})/.exec(String(DATA.generatedAt));
+      meta.push('本页生成于 ' + (stamp ? stamp[1] + ' ' + stamp[2] : DATA.generatedAt) + '（这台电脑的时间）');
+    }
+    $('footer-meta').textContent = meta.join(' · ');
+  }
+
+  function regionName(code, locale) {
+    if (!code) return '';
+    var upper = String(code).toUpperCase();
+    try {
+      var name = new Intl.DisplayNames([locale || 'zh-CN'], { type: 'region' }).of(upper);
+      return name && name !== upper ? name : upper;
+    } catch (e) { return upper; }
+  }
+
+  function fetchWithTimeout(url, ms, asText) {
+    var ctrl = new AbortController();
+    var timer = setTimeout(function () { ctrl.abort(); }, ms);
+    var started = performance.now();
+    return fetch(url, { cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer', signal: ctrl.signal })
+      .then(function (res) {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return asText ? res.text() : res.json();
+      })
+      .then(function (body) { return { body: body, ms: Math.round(performance.now() - started) }; })
+      .finally(function () { clearTimeout(timer); });
+  }
+
+  var IP_SOURCES = [
+    {
+      name: 'Cloudflare', url: 'https://www.cloudflare.com/cdn-cgi/trace', text: true,
+      parse: function (body) {
+        var map = {};
+        String(body).split('\n').forEach(function (line) {
+          var i = line.indexOf('=');
+          if (i > 0) map[line.slice(0, i).trim()] = line.slice(i + 1).trim();
+        });
+        if (!map.ip) throw new Error('no ip');
+        return { ip: map.ip, countryCode: map.loc || '', warp: map.warp || '' };
+      }
+    },
+    {
+      name: 'ipinfo.io', url: 'https://ipinfo.io/json', detail: true,
+      parse: function (j) {
+        if (!j || !j.ip) throw new Error('no ip');
+        return { ip: j.ip, countryCode: j.country || '', region: j.region || '', city: j.city || '', org: j.org || '', timezone: j.timezone || '' };
+      }
+    },
+    {
+      name: 'ip.sb', url: 'https://api.ip.sb/geoip', detail: true,
+      parse: function (j) {
+        if (!j || !j.ip) throw new Error('no ip');
+        var org = [j.asn ? 'AS' + j.asn : '', j.asn_organization || j.isp || j.organization || ''].filter(Boolean).join(' ');
+        return { ip: j.ip, countryCode: j.country_code || '', region: j.region || '', city: j.city || '', org: org, timezone: j.timezone || '' };
+      }
+    }
+  ];
+
+  var IP_FALLBACKS = [
+    {
+      name: 'geojs.io', url: 'https://get.geojs.io/v1/ip/geo.json', detail: true,
+      parse: function (j) {
+        if (!j || !j.ip) throw new Error('no ip');
+        return { ip: j.ip, countryCode: j.country_code || '', region: j.region || '', city: j.city || '', org: j.organization || '', timezone: j.timezone || '' };
+      }
+    },
+    {
+      name: 'ipwho.is', url: 'https://ipwho.is/', detail: true,
+      parse: function (j) {
+        if (!j || !j.ip || j.success === false) throw new Error('no ip');
+        var c = j.connection || {};
+        var org = [c.asn ? 'AS' + c.asn : '', c.org || c.isp || ''].filter(Boolean).join(' ');
+        return { ip: j.ip, countryCode: j.country_code || '', region: j.region || '', city: j.city || '', org: org, timezone: (j.timezone && j.timezone.id) || '' };
+      }
+    }
+  ];
+
+  function querySource(source) {
+    return fetchWithTimeout(source.url, 9000, !!source.text).then(function (res) {
+      var info = source.parse(res.body);
+      info.source = source.name;
+      info.ms = res.ms;
+      info.detail = !!source.detail;
+      return info;
+    });
+  }
+
+  function isIPv6(ip) { return String(ip).indexOf(':') >= 0; }
+
+  function describeProxy() {
+    if (DATA.proxyDirect) return '直连（不走代理）';
+    var name = String(DATA.proxyName || '');
+    var parts = name ? [name] : [];
+    if (DATA.proxyType && name.toUpperCase().indexOf(String(DATA.proxyType).toUpperCase()) < 0) parts.push(DATA.proxyType);
+    if (DATA.proxyAddress && name.indexOf(DATA.proxyAddress) < 0) parts.push(DATA.proxyAddress);
+    return parts.join(' · ');
+  }
+
+  function checkIP() {
+    return Promise.allSettled(IP_SOURCES.map(querySource)).then(function (settled) {
+      var results = settled.filter(function (s) { return s.status === 'fulfilled'; }).map(function (s) { return s.value; });
+      var hasDetail = results.some(function (r) { return r.detail && r.countryCode; });
+      if (hasDetail) return results;
+      return IP_FALLBACKS.reduce(function (chain, source) {
+        return chain.then(function (list) {
+          if (list.some(function (r) { return r.detail && r.countryCode; })) return list;
+          return querySource(source).then(function (r) { return list.concat([r]); }, function () { return list; });
+        });
+      }, Promise.resolve(results));
+    }).then(function (results) {
+      setRow('proxy', 'info', describeProxy() || '没有配置');
+
+      if (results.length === 0) {
+        setRow('status', 'bad', DATA.proxyDirect ? '网络不通' : '代理不通',
+          '几个 IP 检测站都访问不了。先确认' + (DATA.proxyDirect ? '网络' : '代理') + '是否正常，再点「重新检测」。');
+        ['ip', 'country', 'city', 'org'].forEach(function (key) { setRow(key, 'bad', '没查到'); });
+        setRow('sites', 'bad', '没有检测站能访问');
+        return { ok: false, exitIPs: [], primary: null, results: results };
+      }
+
+      var primary = results.find(function (r) { return r.detail && r.countryCode; }) || results[0];
+      var fastest = results.reduce(function (min, r) { return Math.min(min, r.ms); }, Infinity);
+      var failed = IP_SOURCES.length - results.filter(function (r) {
+        return IP_SOURCES.some(function (s) { return s.name === r.source; });
+      }).length;
+      setRow('status', 'ok', DATA.proxyDirect ? '网络正常（直连）' : '代理正常',
+        '最快 ' + fastest + ' 毫秒' + (failed > 0 ? '，有 ' + failed + ' 个检测站没连上' : ''));
+
+      var exitIPs = [];
+      results.forEach(function (r) { if (exitIPs.indexOf(r.ip) < 0) exitIPs.push(r.ip); });
+      setRow('ip', 'ok', primary.ip, '', true);
+
+      var code = primary.countryCode || (results.find(function (r) { return r.countryCode; }) || {}).countryCode || '';
+      setRow('country', code ? 'ok' : 'warn', code ? regionName(code) + '（' + code.toUpperCase() + '）' : '没查到');
+      var place = [primary.region, primary.city].filter(Boolean);
+      if (place.length === 2 && place[0] === place[1]) place.pop();
+      setRow('city', 'info', place.join(' · ') || '没查到');
+      setRow('org', 'info', primary.org || '没查到');
+
+      var v4 = exitIPs.filter(function (ip) { return !isIPv6(ip); });
+      var v6 = exitIPs.filter(isIPv6);
+      var detailText = results.map(function (r) { return r.source + ' ' + r.ip; }).join('；');
+      if (results.length === 1) {
+        setRow('sites', 'info', '只连上 1 个检测站，没法比对');
+      } else if (exitIPs.length === 1) {
+        setRow('sites', 'ok', results.length + ' 个检测站看到的出口 IP 一致');
+      } else if (v4.length <= 1 && v6.length <= 1) {
+        setRow('sites', 'info', '出口同时有 IPv4 和 IPv6 两个地址', detailText);
+      } else {
+        setRow('sites', 'warn', '不同网站看到的出口 IP 不一样',
+          detailText + '。代理按域名分流时会这样，注意同一个账号别在两个出口之间来回切。');
+      }
+
+      var cf = results.find(function (r) { return r.source === 'Cloudflare'; });
+      if (cf && cf.warp && cf.warp !== 'off') {
+        rowState.sites.value.appendChild(el('span', 'note', 'Cloudflare 这边走的是 WARP 出口。'));
+      }
+
+      return { ok: true, exitIPs: exitIPs, primary: primary, countryCode: code, results: results };
+    });
+  }
+
+  function checkIPType(ipResult) {
+    if (!ipResult.ok) { setRow('iptype', 'info', '没查到'); return Promise.resolve(); }
+    var url = 'http://ip-api.com/json/?fields=status,query,mobile,proxy,hosting';
+    return fetchWithTimeout(url, 8000, false).then(function (res) {
+      var j = res.body || {};
+      if (j.status !== 'success') throw new Error('failed');
+      var kind = j.hosting ? '机房 IP（数据中心）' : (j.mobile ? '移动网络' : '住宅或普通宽带');
+      var note = j.proxy ? '被 IP 库标记为代理或 VPN。' : '';
+      if (j.query && ipResult.exitIPs.indexOf(j.query) < 0) note += '这一项查到的 IP 是 ' + j.query + '。';
+      setRow('iptype', 'info', kind, note);
+    }).catch(function () {
+      setRow('iptype', 'info', '没查到', 'ip-api.com 没连上，不影响其它结果。');
+    });
+  }
+
+  function isPrivateAddress(ip) {
+    var lower = String(ip).toLowerCase();
+    if (isIPv6(lower)) {
+      return lower === '::1' || lower.indexOf('fe80:') === 0 || lower.indexOf('fc') === 0 || lower.indexOf('fd') === 0;
+    }
+    var p = lower.split('.').map(Number);
+    if (p.length !== 4) return true;
+    return p[0] === 10 || p[0] === 127 || (p[0] === 172 && p[1] >= 16 && p[1] <= 31) ||
+      (p[0] === 192 && p[1] === 168) || (p[0] === 169 && p[1] === 254) || (p[0] === 100 && p[1] >= 64 && p[1] <= 127);
+  }
+
+  function probeWebRTC(timeoutMs) {
+    return new Promise(function (resolve) {
+      var Peer = window.RTCPeerConnection || window.webkitRTCPeerConnection;
+      if (!Peer) { resolve({ supported: false, publicIPs: [], privateIPs: [], hidden: 0 }); return; }
+      var found = { supported: true, publicIPs: [], privateIPs: [], hidden: 0 };
+      var pc, done = false;
+      function finish() {
+        if (done) return;
+        done = true;
+        try { pc && pc.close(); } catch (e) {}
+        resolve(found);
+      }
+      try {
+        pc = new Peer({ iceServers: [
+          { urls: ['stun:stun.cloudflare.com:3478', 'stun:stun.l.google.com:19302'] },
+          { urls: 'stun:stun.miwifi.com:3478' }
+        ] });
+        pc.createDataChannel('wytaof-check');
+        pc.onicecandidate = function (event) {
+          if (!event.candidate) { finish(); return; }
+          var parts = String(event.candidate.candidate || '').split(' ');
+          var address = event.candidate.address || parts[4] || '';
+          if (!address) return;
+          if (/\.local$/i.test(address)) { found.hidden++; return; }
+          var bucket = isPrivateAddress(address) ? found.privateIPs : found.publicIPs;
+          if (bucket.indexOf(address) < 0) bucket.push(address);
+        };
+        pc.createOffer().then(function (offer) { return pc.setLocalDescription(offer); }).catch(finish);
+        setTimeout(finish, timeoutMs);
+      } catch (e) { finish(); }
+    });
+  }
+
+  function judgeWebRTC(rtc, ipResult) {
+    if (!rtc.supported) { setRow('webrtc', 'ok', '已关闭', '浏览器没有开放 WebRTC，不会从这里泄露。'); return; }
+    var exposed = rtc.publicIPs.filter(function (ip) { return ipResult.exitIPs.indexOf(ip) < 0; });
+    if (rtc.publicIPs.length === 0) {
+      var note = rtc.privateIPs.length ? '能看到内网地址 ' + rtc.privateIPs.join('、') + '，一般影响不大。' : '';
+      setRow('webrtc', 'ok', '没有暴露公网 IP', note);
+      return;
+    }
+    if (!ipResult.ok) {
+      setRow('webrtc', 'warn', 'WebRTC 能看到公网 IP ' + rtc.publicIPs.join('、'), '出口 IP 没查到，没法比对是不是真实 IP。', true);
+      return;
+    }
+    if (exposed.length === 0) {
+      setRow('webrtc', 'ok', DATA.proxyDirect ? '和出口 IP 一致' : 'WebRTC 走的也是代理出口', rtc.publicIPs.join('、'));
+      return;
+    }
+    setRow('webrtc', 'bad', 'WebRTC 暴露了 ' + exposed.join('、'),
+      '这个地址和代理出口不一样，很可能就是真实 IP。可以在实例的指纹设置里把 WebRTC 改成「禁用非代理 UDP」。', true);
+  }
+
+  function checkDNS(ipResult) {
+    return fetchWithTimeout('https://edns.ip-api.com/json', 9000, false).then(function (res) {
+      var dns = (res.body && res.body.dns) || {};
+      if (!dns.ip && !dns.geo) throw new Error('empty');
+      var geo = String(dns.geo || '');
+      var dnsCountry = geo.split(' - ')[0].trim();
+      var text = geo || dns.ip;
+      var note = dns.ip ? '解析服务器 ' + dns.ip : '';
+      if (!ipResult.ok || !ipResult.countryCode || !dnsCountry) { setRow('dns', 'info', text, note); return; }
+      var exitCountry = regionName(ipResult.countryCode, 'en').toLowerCase();
+      var lower = dnsCountry.toLowerCase();
+      var same = exitCountry.indexOf(lower) >= 0 || lower.indexOf(exitCountry) >= 0;
+      if (same) { setRow('dns', 'ok', text, note + '，和出口在同一个国家或地区。'); return; }
+      var fromChina = /^china$/i.test(dnsCountry) && ipResult.countryCode.toUpperCase() !== 'CN';
+      setRow('dns', fromChina ? 'bad' : 'warn', text,
+        note + (fromChina ? '。域名解析是从中国发出去的，和出口对不上，存在 DNS 泄露。' : '。解析服务器和出口不在同一个国家或地区，留意一下。'));
+    }).catch(function () {
+      setRow('dns', 'info', '没查到', 'DNS 检测站没连上，不影响其它结果。');
+    });
+  }
+
+  function offsetMinutesOf(zone) {
+    try {
+      var parts = new Intl.DateTimeFormat('en-US', { timeZone: zone, timeZoneName: 'shortOffset' }).formatToParts(new Date());
+      var name = '';
+      parts.forEach(function (p) { if (p.type === 'timeZoneName') name = p.value; });
+      if (name === 'GMT' || name === 'UTC') return 0;
+      var m = /([+-])(\d{1,2})(?::(\d{2}))?/.exec(name);
+      if (!m) return null;
+      return (m[1] === '-' ? -1 : 1) * (parseInt(m[2], 10) * 60 + parseInt(m[3] || '0', 10));
+    } catch (e) { return null; }
+  }
+
+  function formatOffset(minutes) {
+    if (minutes === null || minutes === undefined) return '';
+    var sign = minutes < 0 ? '-' : '+';
+    var abs = Math.abs(minutes);
+    var mm = abs % 60;
+    return 'UTC' + sign + Math.floor(abs / 60) + (mm ? ':' + String(mm).padStart(2, '0') : '');
+  }
+
+  function browserZone() {
+    try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) { return ''; }
+  }
+
+  function checkTimezone(ipResult) {
+    var zone = browserZone();
+    var localOffset = -new Date().getTimezoneOffset();
+    var local = (zone || '未知') + '（' + formatOffset(localOffset) + '）';
+    var ipZone = ipResult.ok && ipResult.primary ? (ipResult.primary.timezone ||
+      (ipResult.results.find(function (r) { return r.timezone; }) || {}).timezone || '') : '';
+    if (!ipZone) { setRow('tz', 'info', local, '出口 IP 的时区没查到，没法比对。'); return; }
+    var ipOffset = offsetMinutesOf(ipZone);
+    if (zone === ipZone) { setRow('tz', 'ok', local, '和出口 IP 所在时区一致。'); return; }
+    if (ipOffset !== null && ipOffset === localOffset) {
+      setRow('tz', 'ok', local, '出口 IP 在 ' + ipZone + '，名字不同但时间一样。');
+      return;
+    }
+    setRow('tz', 'warn', local,
+      '出口 IP 在 ' + ipZone + '（' + formatOffset(ipOffset) + '），浏览器时区对不上，网站能看出来。可以在实例的指纹设置里把时区改成出口所在地。');
+  }
+
+  function checkLanguage(ipResult) {
+    var langs = (navigator.languages && navigator.languages.length ? Array.from(navigator.languages) : [navigator.language]).filter(Boolean);
+    var text = langs.join(', ') || '未知';
+    var code = ipResult.ok ? String(ipResult.countryCode || '').toUpperCase() : '';
+    var chineseRegions = ['CN', 'HK', 'MO', 'TW', 'SG'];
+    if (code && /^zh/i.test(langs[0] || '') && chineseRegions.indexOf(code) < 0) {
+      setRow('lang', 'warn', text, '首选语言是中文，出口却在 ' + regionName(code) + '，有些网站会留意这一点。');
+      return;
+    }
+    setRow('lang', 'ok', text);
+  }
+
+  function checkWebdriver() {
+    if (navigator.webdriver) {
+      setRow('webdriver', 'warn', '浏览器标记了“受自动化程序控制”', '网站能读到这个标记（navigator.webdriver）。');
+    } else {
+      setRow('webdriver', 'ok', '没有自动化标记');
+    }
+  }
+
+  var CANVAS_PROBE_KEY = 'wytaof-canvas-probe';
+  var canvasProbePending = false;
+  var canvasProbePrevious = '';
+  var overallFinished = false;
+
+  function canvasProbeId() {
+    return hashText([DATA.coreVersion || navigator.userAgent, (DATA.fingerprintArgs || []).join(' ')].join('|'));
+  }
+
+  function loadCanvasProbe() {
+    try {
+      var saved = JSON.parse(localStorage.getItem(CANVAS_PROBE_KEY) || 'null');
+      return saved && saved.id === canvasProbeId() ? String(saved.state || '') : '';
+    } catch (e) { return ''; }
+  }
+
+  function saveCanvasProbe(state) {
+    try {
+      if (state) localStorage.setItem(CANVAS_PROBE_KEY, JSON.stringify({ id: canvasProbeId(), state: state }));
+      else localStorage.removeItem(CANVAS_PROBE_KEY);
+    } catch (e) {}
+  }
+
+  function canvasFingerprint() {
+    try {
+      var canvas = document.createElement('canvas');
+      canvas.width = 280; canvas.height = 60;
+      var ctx = canvas.getContext('2d');
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = '#f60';
+      ctx.fillRect(100, 1, 80, 30);
+      ctx.fillStyle = '#069';
+      ctx.font = '15px Arial';
+      ctx.fillText('WytaoF Browser, canvas 0123', 2, 20);
+      ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
+      ctx.font = '18px "Times New Roman"';
+      ctx.fillText('WytaoF Browser, canvas 0123', 4, 45);
+      ctx.globalCompositeOperation = 'multiply';
+      ctx.fillStyle = 'rgb(255,0,255)';
+      ctx.beginPath(); ctx.arc(50, 30, 22, 0, Math.PI * 2, true); ctx.closePath(); ctx.fill();
+      return hashText(canvas.toDataURL());
+    } catch (e) { return ''; }
+  }
+
+  function showCanvasRow() {
+    if (canvasProbePending) { setRow('canvas', 'wait', '检测中'); return; }
+    var state = loadCanvasProbe();
+    if (state === 'running') { state = 'crashed'; saveCanvasProbe('crashed'); }
+    if (state === 'crashed') {
+      setRow('canvas', 'bad', '读取 Canvas 时页面崩溃了',
+        '这个内核在网页读取 Canvas 画面时会让标签页崩溃（显示「喔唷，崩溃啦！」），会读取 Canvas 的网站用它打开也会这样。可以给这个实例换一个内核；或者在实例编辑页「指纹配置 → 高级模式（原始参数）」里加一行 --disable-spoofing=canvas，内核就不再改写 Canvas，代价是这台电脑上各实例的 Canvas 指纹会相同。如果上次只是检测到一半自己关了浏览器，点「再试一次」。');
+      addRowAction('canvas', '再试一次', runCanvasProbe);
+      return;
+    }
+    if (state === 'ok') { runCanvasProbe(); return; }
+    setRow('canvas', 'info', '还没检测',
+      '个别内核一读取 Canvas 画面，页面就会崩溃。点「检测」试一下；要是页面崩了，点浏览器的刷新按钮，这里会给出结论。');
+    addRowAction('canvas', '检测', runCanvasProbe);
+  }
+
+  function runCanvasProbe() {
+    if (canvasProbePending) return;
+    canvasProbePending = true;
+    canvasProbePrevious = loadCanvasProbe();
+    setRow('canvas', 'wait', '检测中');
+    saveCanvasProbe('running');
+    setTimeout(function () {
+      var hash = canvasFingerprint();
+      canvasProbePending = false;
+      saveCanvasProbe('ok');
+      if (hash) setRow('canvas', 'ok', '读取正常', 'Canvas 指纹 ' + hash);
+      else setRow('canvas', 'info', '读不到', '浏览器没有返回 Canvas 画面。');
+      updateOverall(overallFinished);
+    }, 700);
+  }
+
+  window.addEventListener('pagehide', function () {
+    if (canvasProbePending) saveCanvasProbe(canvasProbePrevious === 'running' ? '' : canvasProbePrevious);
+  });
+
+  function webglInfo() {
+    try {
+      var canvas = document.createElement('canvas');
+      var gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+      if (!gl) return null;
+      var ext = gl.getExtension('WEBGL_debug_renderer_info');
+      return {
+        vendor: ext ? gl.getParameter(ext.UNMASKED_VENDOR_WEBGL) : gl.getParameter(gl.VENDOR),
+        renderer: ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)
+      };
+    } catch (e) { return null; }
+  }
+
+  function audioFingerprint() {
+    return new Promise(function (resolve) {
+      try {
+        var Ctx = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+        if (!Ctx) { resolve(''); return; }
+        var ctx = new Ctx(1, 5000, 44100);
+        var osc = ctx.createOscillator();
+        osc.type = 'triangle';
+        osc.frequency.value = 10000;
+        var comp = ctx.createDynamicsCompressor();
+        comp.threshold.value = -50; comp.knee.value = 40; comp.ratio.value = 12;
+        comp.attack.value = 0; comp.release.value = 0.25;
+        osc.connect(comp); comp.connect(ctx.destination);
+        osc.start(0);
+        var timer = setTimeout(function () { resolve(''); }, 3000);
+        ctx.startRendering().then(function (buffer) {
+          clearTimeout(timer);
+          var data = buffer.getChannelData(0), sum = 0;
+          for (var i = 4500; i < 5000; i++) sum += Math.abs(data[i]);
+          resolve(hashText(String(sum)));
+        }).catch(function () { clearTimeout(timer); resolve(''); });
+      } catch (e) { resolve(''); }
+    });
+  }
+
+  function fillFingerprint() {
+    setRow('ua', 'info', navigator.userAgent, '', true);
+    setRow('platform', 'info', navigator.platform || '未知');
+    setRow('brands', 'info', '读取中');
+
+    var langs = (navigator.languages && navigator.languages.length ? Array.from(navigator.languages) : [navigator.language]).filter(Boolean);
+    setRow('fplang', 'info', langs.join(', ') || '未知');
+    setRow('fptz', 'info', (browserZone() || '未知') + '（' + formatOffset(-new Date().getTimezoneOffset()) + '）');
+    setRow('screen', 'info', screen.width + ' × ' + screen.height,
+      '可用 ' + screen.availWidth + ' × ' + screen.availHeight + ' · ' + screen.colorDepth + ' 位色 · 缩放 ' + (window.devicePixelRatio || 1));
+    setRow('viewport', 'info', window.innerWidth + ' × ' + window.innerHeight,
+      window.outerWidth > 0 ? '外框 ' + window.outerWidth + ' × ' + window.outerHeight : '');
+    setRow('cpu', 'info', navigator.hardwareConcurrency ? navigator.hardwareConcurrency + ' 核' : '未知');
+    setRow('memory', 'info', navigator.deviceMemory ? navigator.deviceMemory + ' GB' : '未知');
+    setRow('touch', 'info', String(navigator.maxTouchPoints || 0));
+    var dnt = navigator.doNotTrack;
+    setRow('dnt', 'info', dnt === '1' ? '已开启' : (dnt === '0' ? '已关闭' : '没有设置'));
+
+    var gl = webglInfo();
+    setRow('glvendor', 'info', gl ? (gl.vendor || '未知') : '不可用');
+    setRow('glrenderer', 'info', gl ? (gl.renderer || '未知') : '不可用', '', true);
+    setRow('audio', 'info', '读取中');
+    audioFingerprint().then(function (hash) { setRow('audio', 'info', hash || '读取失败', '', true); });
+
+    var uaData = navigator.userAgentData;
+    if (!uaData || !uaData.getHighEntropyValues) {
+      setRow('brands', 'info', '浏览器没有提供');
+      return;
+    }
+    uaData.getHighEntropyValues(['platform', 'platformVersion', 'architecture', 'bitness', 'fullVersionList']).then(function (v) {
+      var list = (v.fullVersionList || uaData.brands || []).filter(function (b) { return !/not.?a.?brand/i.test(b.brand); });
+      setRow('brands', 'info', list.map(function (b) { return b.brand + ' ' + b.version; }).join('，') || '未知');
+      var os = [v.platform, v.platformVersion].filter(Boolean).join(' ');
+      var arch = [v.architecture, v.bitness ? v.bitness + ' 位' : ''].filter(Boolean).join(' ');
+      setRow('platform', 'info', os || navigator.platform || '未知', [navigator.platform, arch].filter(Boolean).join(' · '));
+    }).catch(function () {
+      setRow('brands', 'info', (uaData.brands || []).map(function (b) { return b.brand + ' ' + b.version; }).join('，') || '未知');
+    });
+  }
+
+  function buildReport() {
+    var lines = ['实例：' + (DATA.profileName || '')];
+    ['ip', 'leak', 'fp'].forEach(function (group) {
+      ROWS[group].forEach(function (spec) {
+        var state = rowState[spec[0]];
+        lines.push(state.label + '：' + state.text + (state.note ? '（' + state.note + '）' : ''));
+      });
+    });
+    return lines.join('\n');
+  }
+
+  function copyReport() {
+    var button = $('btn-copy');
+    var text = buildReport();
+    var done = function (ok) {
+      button.textContent = ok ? '已复制' : '复制失败';
+      setTimeout(function () { button.textContent = '复制结果'; }, 1600);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(false); });
+      return;
+    }
+    done(false);
+  }
+
+  function run() {
+    var seq = ++runSeq;
+    var rerun = $('btn-rerun');
+    rerun.disabled = true;
+    overallFinished = false;
+    resetRows();
+    updateOverall(false);
+    fillFingerprint();
+    checkWebdriver();
+    showCanvasRow();
+
+    Promise.all([checkIP(), probeWebRTC(5000)]).then(function (pair) {
+      if (seq !== runSeq) return;
+      var ipResult = pair[0];
+      judgeWebRTC(pair[1], ipResult);
+      checkTimezone(ipResult);
+      checkLanguage(ipResult);
+      return Promise.all([checkDNS(ipResult), checkIPType(ipResult)]);
+    }).catch(function () {
+      ['status', 'ip', 'country', 'city', 'org', 'iptype', 'sites', 'webrtc', 'dns', 'tz', 'lang'].forEach(function (key) {
+        if (rowState[key] && rowState[key].level === 'wait') setRow(key, 'info', '没查到');
+      });
+    }).then(function () {
+      if (seq !== runSeq) return;
+      overallFinished = true;
+      updateOverall(true);
+      rerun.disabled = false;
+    });
+  }
+
+  buildRows();
+  renderIdentity();
+  $('btn-rerun').addEventListener('click', run);
+  $('btn-copy').addEventListener('click', copyReport);
+  run();
+})();
+</script>
+</body>
+</html>

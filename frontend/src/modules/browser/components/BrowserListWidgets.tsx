@@ -1,8 +1,96 @@
 import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { ChevronDown, ChevronUp, Copy, Pencil, Play, RefreshCw, Square, Trash2 } from 'lucide-react'
 
 import { Button, toast } from '../../../shared/components'
 import { regenerateBrowserProfileCode, setBrowserProfileCode } from '../api'
+
+interface ProfileNameCellProps {
+  profileId: string
+  profileName: string
+  onRename: (profileId: string, profileName: string) => Promise<void>
+  className?: string
+}
+
+export function ProfileNameCell({ profileId, profileName, onRename, className = '' }: ProfileNameCellProps) {
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState(profileName)
+  const [saving, setSaving] = useState(false)
+  const cancelledRef = useRef(false)
+
+  const startEditing = () => {
+    cancelledRef.current = false
+    setValue(profileName)
+    setEditing(true)
+  }
+
+  const commit = async () => {
+    const next = value.trim()
+    if (!next || next === profileName) {
+      setEditing(false)
+      return
+    }
+    setSaving(true)
+    try {
+      await onRename(profileId, next)
+      setEditing(false)
+    } catch {
+      // 改名失败时留在编辑状态，错误提示由上层弹出
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        value={value}
+        disabled={saving}
+        maxLength={100}
+        onChange={(event) => setValue(event.target.value)}
+        onFocus={(event) => event.currentTarget.select()}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault()
+            event.currentTarget.blur()
+          } else if (event.key === 'Escape') {
+            cancelledRef.current = true
+            setEditing(false)
+          }
+        }}
+        onBlur={() => {
+          if (cancelledRef.current) {
+            cancelledRef.current = false
+            return
+          }
+          void commit()
+        }}
+        className={`h-7 w-full px-2 text-sm rounded-md border border-[var(--color-border-strong)] bg-[var(--color-bg-surface)] text-[var(--color-text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-border-strong)] ${className}`}
+      />
+    )
+  }
+
+  return (
+    <div className={`group/name flex items-start gap-1 min-w-0 ${className}`}>
+      <Link
+        className="text-[var(--color-accent)] text-sm font-medium hover:underline break-all min-w-0"
+        to={`/browser/detail/${profileId}`}
+        title={profileName}
+      >
+        {profileName}
+      </Link>
+      <button
+        type="button"
+        onClick={startEditing}
+        title="改名"
+        className="shrink-0 mt-0.5 p-0.5 rounded text-[var(--color-text-muted)] opacity-40 group-hover/name:opacity-100 hover:text-[var(--color-accent)] transition-opacity"
+      >
+        <Pencil className="w-3 h-3" />
+      </button>
+    </div>
+  )
+}
 
 interface BatchToolbarProps {
   selectedCount: number

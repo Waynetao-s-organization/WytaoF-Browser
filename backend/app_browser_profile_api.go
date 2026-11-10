@@ -52,6 +52,11 @@ func (a *App) BrowserProfileUpdate(profileId string, input BrowserProfileInput) 
 	return a.browserMgr.Update(profileId, input)
 }
 
+// BrowserProfileRename 只修改实例名称
+func (a *App) BrowserProfileRename(profileId string, profileName string) (*BrowserProfile, error) {
+	return a.browserMgr.Rename(profileId, profileName)
+}
+
 func (a *App) BrowserProfileDelete(profileId string) error { return a.browserMgr.Delete(profileId) }
 
 // BrowserProfileCopy 复制实例配置（除指纹参数外全部复制）

@@ -30,6 +30,8 @@ export function CoreManagementPage() {
     defaultLaunchArgs: [],
     defaultStartUrls: [],
     restoreLastSession: false,
+    startPageDisabled: false,
+    windowTitleDisabled: false,
     startReadyTimeoutMs: 3000,
     startStableWindowMs: 1200,
   })
@@ -40,6 +42,8 @@ export function CoreManagementPage() {
     defaultLaunchArgs: '',
     defaultStartUrls: '',
     restoreLastSession: false,
+    startPageDisabled: false,
+    windowTitleDisabled: false,
     startReadyTimeoutMs: 3000,
     startStableWindowMs: 1200,
   })
@@ -224,9 +228,15 @@ export function CoreManagementPage() {
   const handleScan = async () => {
     setScanning(true)
     try {
-      await scanBrowserCores()
+      const knownIds = new Set(cores.map(core => core.coreId))
+      const scanned = await scanBrowserCores()
       await loadData()
-      toast.success('扫描完成')
+      const added = scanned.filter(core => !knownIds.has(core.coreId))
+      if (added.length > 0) {
+        toast.success(`扫描完成，新登记 ${added.length} 个内核：${added.map(core => core.coreName).join('、')}`)
+      } else {
+        toast.success('扫描完成，chrome 目录下没有发现新的内核')
+      }
     } catch (error: any) {
       toast.error(error?.message || '扫描失败')
     } finally {
@@ -357,6 +367,8 @@ export function CoreManagementPage() {
       defaultLaunchArgs: settings.defaultLaunchArgs.join('\n'),
       defaultStartUrls: settings.defaultStartUrls.join('\n'),
       restoreLastSession: settings.restoreLastSession,
+      startPageDisabled: Boolean(settings.startPageDisabled),
+      windowTitleDisabled: Boolean(settings.windowTitleDisabled),
       startReadyTimeoutMs: settings.startReadyTimeoutMs,
       startStableWindowMs: settings.startStableWindowMs,
     })
@@ -373,6 +385,8 @@ export function CoreManagementPage() {
         defaultLaunchArgs: settingsForm.defaultLaunchArgs.split('\n').map(s => s.trim()).filter(Boolean),
         defaultStartUrls: settingsForm.defaultStartUrls.split('\n').map(s => s.trim()).filter(Boolean),
         restoreLastSession: settingsForm.restoreLastSession,
+        startPageDisabled: settingsForm.startPageDisabled,
+        windowTitleDisabled: settingsForm.windowTitleDisabled,
         startReadyTimeoutMs: Math.max(1000, Number(settingsForm.startReadyTimeoutMs) || 3000),
         startStableWindowMs: Math.max(0, Number(settingsForm.startStableWindowMs) || 1200),
       }
@@ -454,6 +468,14 @@ export function CoreManagementPage() {
             <p className="text-sm text-[var(--color-text-primary)]">{settings.restoreLastSession ? '开启' : '关闭'}</p>
           </div>
           <div>
+            <p className="text-xs text-[var(--color-text-muted)] mb-1">启动时打开环境检测页</p>
+            <p className="text-sm text-[var(--color-text-primary)]">{settings.startPageDisabled ? '关闭' : '开启'}</p>
+          </div>
+          <div>
+            <p className="text-xs text-[var(--color-text-muted)] mb-1">窗口上显示实例名称</p>
+            <p className="text-sm text-[var(--color-text-primary)]">{settings.windowTitleDisabled ? '关闭' : '开启'}</p>
+          </div>
+          <div>
             <p className="text-xs text-[var(--color-text-muted)] mb-1">启动就绪超时</p>
             <p className="text-sm text-[var(--color-text-primary)]">{settings.startReadyTimeoutMs} ms</p>
           </div>
@@ -530,6 +552,30 @@ export function CoreManagementPage() {
                 checked={settingsForm.restoreLastSession}
                 onChange={checked => setSettingsForm(prev => ({ ...prev, restoreLastSession: checked }))}
               />
+            </div>
+          </FormItem>
+          <FormItem label="多窗口识别">
+            <div className="rounded-lg border border-[var(--color-border-default)] divide-y divide-[var(--color-border-default)]">
+              <div className="flex items-center justify-between px-3 py-2">
+                <div>
+                  <p className="text-sm text-[var(--color-text-primary)]">启动时打开环境检测页</p>
+                  <p className="text-xs text-[var(--color-text-muted)] mt-1">在界面上手动启动实例时，第一个标签页显示实例名称、出口 IP、国家、泄露检测和基础指纹。接口和脚本启动的实例不打开。</p>
+                </div>
+                <Switch
+                  checked={!settingsForm.startPageDisabled}
+                  onChange={checked => setSettingsForm(prev => ({ ...prev, startPageDisabled: !checked }))}
+                />
+              </div>
+              <div className="flex items-center justify-between px-3 py-2">
+                <div>
+                  <p className="text-sm text-[var(--color-text-primary)]">窗口上显示实例名称</p>
+                  <p className="text-xs text-[var(--color-text-muted)] mt-1">浏览器右上角的账户名称改成实例名称，任务栏和 Alt+Tab 里的窗口标题前面加上【实例名称】。</p>
+                </div>
+                <Switch
+                  checked={!settingsForm.windowTitleDisabled}
+                  onChange={checked => setSettingsForm(prev => ({ ...prev, windowTitleDisabled: !checked }))}
+                />
+              </div>
             </div>
           </FormItem>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -107,10 +107,109 @@ func TestBrowserDefaultStartURLsIncludesOpenOnStartBookmarks(t *testing.T) {
 	app.config = cfg
 	app.browserMgr = internalbrowser.NewManager(cfg, appRoot)
 
-	got := app.browserDefaultStartURLs()
+	got := app.browserDefaultStartURLs(nil)
 	want := []string{"https://home.example/", "https://open.example/"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("default start urls mismatch: got=%v want=%v", got, want)
+	}
+}
+
+func TestBookmarkOpensForProfileRespectsTagAndGroupScope(t *testing.T) {
+	t.Parallel()
+
+	teamProfile := &internalbrowser.Profile{ProfileId: "p-team", Tags: []string{"Team", "测试"}}
+	groupProfile := &internalbrowser.Profile{ProfileId: "p-group", GroupId: "group-google"}
+	plainProfile := &internalbrowser.Profile{ProfileId: "p-plain"}
+
+	tests := []struct {
+		name     string
+		bookmark config.BrowserBookmark
+		profile  *internalbrowser.Profile
+		want     bool
+	}{
+		{name: "没勾启动打开", bookmark: config.BrowserBookmark{OpenTags: []string{"Team"}}, profile: teamProfile, want: false},
+		{name: "不限范围对所有实例生效", bookmark: config.BrowserBookmark{OpenOnStart: true}, profile: plainProfile, want: true},
+		{name: "不限范围时没有实例信息也生效", bookmark: config.BrowserBookmark{OpenOnStart: true}, profile: nil, want: true},
+		{name: "标签匹配", bookmark: config.BrowserBookmark{OpenOnStart: true, OpenTags: []string{"team"}}, profile: teamProfile, want: true},
+		{name: "标签不匹配", bookmark: config.BrowserBookmark{OpenOnStart: true, OpenTags: []string{"Google"}}, profile: teamProfile, want: false},
+		{name: "分组匹配", bookmark: config.BrowserBookmark{OpenOnStart: true, OpenGroupIds: []string{"group-google"}}, profile: groupProfile, want: true},
+		{name: "分组不匹配", bookmark: config.BrowserBookmark{OpenOnStart: true, OpenGroupIds: []string{"group-other"}}, profile: groupProfile, want: false},
+		{name: "标签或分组任一匹配即可", bookmark: config.BrowserBookmark{OpenOnStart: true, OpenTags: []string{"Google"}, OpenGroupIds: []string{"group-google"}}, profile: groupProfile, want: true},
+		{name: "限定范围时无标签无分组的实例不打开", bookmark: config.BrowserBookmark{OpenOnStart: true, OpenTags: []string{"Team"}}, profile: plainProfile, want: false},
+		{name: "限定范围时没有实例信息不打开", bookmark: config.BrowserBookmark{OpenOnStart: true, OpenTags: []string{"Team"}}, profile: nil, want: false},
+		{name: "范围里只有空白等于不限", bookmark: config.BrowserBookmark{OpenOnStart: true, OpenTags: []string{"  "}}, profile: plainProfile, want: true},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := bookmarkOpensForProfile(tt.bookmark, tt.profile); got != tt.want {
+				t.Fatalf("bookmarkOpensForProfile() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestBrowserDefaultStartURLsFiltersScopedBookmarksByProfile(t *testing.T) {
+	t.Parallel()
+
+	appRoot := t.TempDir()
+	cfg := config.DefaultConfig()
+	cfg.Browser.DefaultStartURLs = []string{}
+	cfg.Browser.DefaultBookmarks = []config.BrowserBookmark{
+		{Name: "ChatGPT", URL: "https://chatgpt.example/", OpenOnStart: true, OpenTags: []string{"Team"}},
+		{Name: "Gmail", URL: "https://gmail.example/", OpenOnStart: true, OpenTags: []string{"Google"}},
+		{Name: "通用", URL: "https://all.example/", OpenOnStart: true},
+	}
+
+	app := NewApp(appRoot)
+	app.config = cfg
+	app.browserMgr = internalbrowser.NewManager(cfg, appRoot)
+
+	team := &internalbrowser.Profile{ProfileId: "p-team", Tags: []string{"Team"}}
+	if got, want := app.browserDefaultStartURLs(team), []string{"https://chatgpt.example/", "https://all.example/"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("Team 实例的启动页不对: got=%v want=%v", got, want)
+	}
+	google := &internalbrowser.Profile{ProfileId: "p-google", Tags: []string{"Google"}}
+	if got, want := app.browserDefaultStartURLs(google), []string{"https://gmail.example/", "https://all.example/"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("Google 实例的启动页不对: got=%v want=%v", got, want)
+	}
+	other := &internalbrowser.Profile{ProfileId: "p-other", Tags: []string{"Other"}}
+	if got, want := app.browserDefaultStartURLs(other), []string{"https://all.example/"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("其它实例的启动页不对: got=%v want=%v", got, want)
+	}
+}
+
+func TestBookmarkSaveKeepsOpenScope(t *testing.T) {
+	t.Parallel()
+
+	appRoot := t.TempDir()
+	cfg := config.DefaultConfig()
+	app := NewApp(appRoot)
+	app.config = cfg
+	app.browserMgr = internalbrowser.NewManager(cfg, appRoot)
+
+	err := app.BookmarkSave([]config.BrowserBookmark{{
+		Name:         "ChatGPT",
+		URL:          "https://chatgpt.example/",
+		OpenOnStart:  true,
+		OpenTags:     []string{" Team ", "team", ""},
+		OpenGroupIds: []string{"group-a", "group-a"},
+	}})
+	if err != nil {
+		t.Fatalf("BookmarkSave returned error: %v", err)
+	}
+	item, ok := findBookmarkItemByURL(app.BookmarkList(), "https://chatgpt.example/")
+	if !ok {
+		t.Fatalf("保存后的书签不见了: %+v", app.BookmarkList())
+	}
+	if !reflect.DeepEqual(item.OpenTags, []string{"Team"}) || !reflect.DeepEqual(item.OpenGroupIds, []string{"group-a"}) {
+		t.Fatalf("启动范围没有按预期保存: tags=%v groups=%v", item.OpenTags, item.OpenGroupIds)
+	}
+	for _, bookmark := range app.BookmarkList() {
+		if bookmark.OpenTags == nil || bookmark.OpenGroupIds == nil {
+			t.Fatalf("启动范围应当是空数组而不是 nil: %+v", bookmark)
+		}
 	}
 }
 

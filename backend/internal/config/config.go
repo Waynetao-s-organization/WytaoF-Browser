@@ -135,9 +135,11 @@ type RuntimeConfig struct {
 }
 
 type BrowserBookmark struct {
-	Name        string `yaml:"name" json:"name"`
-	URL         string `yaml:"url" json:"url"`
-	OpenOnStart bool   `yaml:"open_on_start,omitempty" json:"openOnStart"`
+	Name         string   `yaml:"name" json:"name"`
+	URL          string   `yaml:"url" json:"url"`
+	OpenOnStart  bool     `yaml:"open_on_start,omitempty" json:"openOnStart"`
+	OpenTags     []string `yaml:"open_tags,omitempty" json:"openTags"`
+	OpenGroupIds []string `yaml:"open_group_ids,omitempty" json:"openGroupIds"`
 }
 
 type BrowserConfig struct {
@@ -146,9 +148,12 @@ type BrowserConfig struct {
 	DefaultLaunchArgs      []string                       `yaml:"default_launch_args"`
 	DefaultStartURLs       []string                       `yaml:"default_start_urls"`
 	RestoreLastSession     bool                           `yaml:"restore_last_session"`
+	StartPageDisabled      bool                           `yaml:"start_page_disabled,omitempty"`
+	WindowTitleDisabled    bool                           `yaml:"window_title_disabled,omitempty"`
 	StartReadyTimeoutMs    int                            `yaml:"start_ready_timeout_ms,omitempty"`
 	StartStableWindowMs    int                            `yaml:"start_stable_window_ms,omitempty"`
 	DefaultBookmarks       []BrowserBookmark              `yaml:"default_bookmarks,omitempty"`
+	IgnoredCorePaths       []string                       `yaml:"ignored_core_paths,omitempty"`
 	Cores                  []BrowserCore                  `yaml:"cores,omitempty"`
 	Proxies                []BrowserProxy                 `yaml:"proxies,omitempty"`
 	Profiles               []BrowserProfileConfig         `yaml:"profiles,omitempty"`

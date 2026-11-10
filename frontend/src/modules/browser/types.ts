@@ -104,6 +104,8 @@ export interface BrowserSettings {
   defaultLaunchArgs: string[]
   defaultStartUrls: string[]
   restoreLastSession: boolean
+  startPageDisabled?: boolean
+  windowTitleDisabled?: boolean
   startReadyTimeoutMs: number
   startStableWindowMs: number
 }
@@ -208,6 +210,8 @@ export interface BrowserBookmark {
   name: string
   url: string
   openOnStart?: boolean
+  openTags?: string[]
+  openGroupIds?: string[]
 }
 
 export interface BookmarkSyncResult {

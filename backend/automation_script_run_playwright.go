@@ -23,7 +23,7 @@ func (a *App) ensurePlaywrightTargetReady(selector map[string]any) error {
 		return nil
 	}
 
-	if _, err := a.BrowserInstanceStart(profileID); err != nil {
+	if _, err := a.browserInstanceStartInternal(profileID, nil, nil, false, false, false, "", ""); err != nil {
 		return fmt.Errorf("预启动脚本目标实例失败: %w", err)
 	}
 	return nil

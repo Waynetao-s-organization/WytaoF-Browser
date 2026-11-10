@@ -23,6 +23,8 @@ export function createDefaultBrowserSettings(): BrowserSettings {
     defaultLaunchArgs: [],
     defaultStartUrls: [],
     restoreLastSession: false,
+    startPageDisabled: false,
+    windowTitleDisabled: false,
     startReadyTimeoutMs: 3000,
     startStableWindowMs: 1200,
   }

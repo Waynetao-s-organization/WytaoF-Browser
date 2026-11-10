@@ -10,12 +10,12 @@ interface GroupSelectorProps {
   className?: string
 }
 
-interface FlatGroup extends BrowserGroup {
+export interface FlatGroup extends BrowserGroup {
   level: number
 }
 
 // 将分组列表扁平化并计算层级
-function flattenGroups(groups: BrowserGroup[]): FlatGroup[] {
+export function flattenGroups(groups: BrowserGroup[]): FlatGroup[] {
   const result: FlatGroup[] = []
   const addChildren = (parentId: string, level: number) => {
     groups

@@ -46,6 +46,8 @@ type App struct {
 	automationTargetCursor map[string]string
 	stopServicesOnce       sync.Once
 	finalizeOnce           sync.Once
+	windowTitleStop        chan struct{}
+	windowTitleStopOnce    sync.Once
 }
 
 // NewApp 创建新的应用实例

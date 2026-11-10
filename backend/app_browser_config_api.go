@@ -14,6 +14,8 @@ func (a *App) GetBrowserSettings() BrowserSettings {
 		DefaultLaunchArgs:      append([]string{}, a.config.Browser.DefaultLaunchArgs...),
 		DefaultStartURLs:       append([]string{}, a.config.Browser.DefaultStartURLs...),
 		RestoreLastSession:     a.config.Browser.RestoreLastSession,
+		StartPageDisabled:      a.config.Browser.StartPageDisabled,
+		WindowTitleDisabled:    a.config.Browser.WindowTitleDisabled,
 		StartReadyTimeoutMs:    browserStartReadyTimeoutMillis(a.config),
 		StartStableWindowMs:    browserStartStableWindowMillis(a.config),
 	}
@@ -30,6 +32,8 @@ func (a *App) SaveBrowserSettings(settings BrowserSettings) error {
 		a.config.Browser.DefaultStartURLs = config.DefaultBrowserStartURLs()
 	}
 	a.config.Browser.RestoreLastSession = settings.RestoreLastSession
+	a.config.Browser.StartPageDisabled = settings.StartPageDisabled
+	a.config.Browser.WindowTitleDisabled = settings.WindowTitleDisabled
 	if settings.StartReadyTimeoutMs > 0 {
 		a.config.Browser.StartReadyTimeoutMs = settings.StartReadyTimeoutMs
 	} else if a.config.Browser.StartReadyTimeoutMs <= 0 {
@@ -52,11 +56,24 @@ func (a *App) BrowserCoreList() []BrowserCore {
 }
 
 func (a *App) BrowserCoreSave(input BrowserCoreInput) error {
-	return a.browserMgr.SaveCore(input)
+	if err := a.browserMgr.SaveCore(input); err != nil {
+		return err
+	}
+	if a.setCorePathIgnored(input.CorePath, false) {
+		a.saveIgnoredCorePaths()
+	}
+	return nil
 }
 
 func (a *App) BrowserCoreDelete(coreId string) error {
-	return a.browserMgr.DeleteCore(coreId)
+	core, found := a.browserMgr.GetCore(coreId)
+	if err := a.browserMgr.DeleteCore(coreId); err != nil {
+		return err
+	}
+	if found {
+		a.ignoreDeletedCoreIfScannable(core.CorePath)
+	}
+	return nil
 }
 
 func (a *App) BrowserCoreSetDefault(coreId string) error {
@@ -73,6 +90,7 @@ func (a *App) BrowserCoreExtendedInfo() []BrowserCoreExtendedInfo {
 
 // BrowserCoreScan 重新扫描 chrome 目录，自动注册新内核
 func (a *App) BrowserCoreScan() []BrowserCore {
+	a.registerDetectedCores(true)
 	a.autoDetectCores()
 	return a.browserMgr.ListCores()
 }

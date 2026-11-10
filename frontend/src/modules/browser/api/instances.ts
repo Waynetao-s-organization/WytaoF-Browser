@@ -46,6 +46,15 @@ export async function startBrowserInstanceByCode(code: string): Promise<BrowserP
   return startBrowserInstance(profile.profileId)
 }
 
+// 运行自动化脚本前的预启动：不打开环境检测页，免得影响脚本
+export async function startBrowserInstanceByCodeForScript(code: string): Promise<BrowserProfile | null> {
+  const bindings: any = await getBindings()
+  if (bindings?.BrowserInstanceStartByCodeForScript) {
+    return (await bindings.BrowserInstanceStartByCodeForScript(code)) || null
+  }
+  return startBrowserInstanceByCode(code)
+}
+
 export async function stopBrowserInstance(profileId: string): Promise<BrowserProfile | null> {
   const bindings: any = await getBindings()
   if (bindings?.BrowserInstanceStop) {

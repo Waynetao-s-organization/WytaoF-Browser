@@ -1,8 +1,25 @@
-import { useEffect, useState } from 'react'
-import { Plus, Trash2, RotateCcw, GripVertical, RefreshCw } from 'lucide-react'
-import { Button, Card, ConfirmModal, Input, toast } from '../../../shared/components'
-import type { BrowserBookmark } from '../types'
-import { fetchBookmarks, resetBookmarks, saveBookmarks, syncBookmarksToProfiles } from '../api'
+import { useEffect, useMemo, useState } from 'react'
+import { Plus, Trash2, RotateCcw, GripVertical, RefreshCw, Filter } from 'lucide-react'
+import { Button, Card, ConfirmModal, Input, Modal, toast } from '../../../shared/components'
+import type { BrowserBookmark, BrowserGroupWithCount } from '../types'
+import { fetchAllTags, fetchBookmarks, fetchBrowserProfiles, fetchGroups, resetBookmarks, saveBookmarks, syncBookmarksToProfiles } from '../api'
+import { flattenGroups } from '../components/GroupSelector'
+
+type ScopeMode = 'all' | 'custom'
+
+interface ScopeDraft {
+  index: number
+  mode: ScopeMode
+  tags: Set<string>
+  groupIds: Set<string>
+}
+
+const chipClass = (active: boolean) =>
+  `px-2.5 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer ${
+    active
+      ? 'bg-[var(--color-accent)] text-white'
+      : 'bg-[var(--color-bg-muted)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-subtle)]'
+  }`
 
 export function BookmarkSettingsPage() {
   const [items, setItems] = useState<BrowserBookmark[]>([])
@@ -11,17 +28,39 @@ export function BookmarkSettingsPage() {
   const [resetOpen, setResetOpen] = useState(false)
   const [syncOpen, setSyncOpen] = useState(false)
   const [dragIndex, setDragIndex] = useState<number | null>(null)
+  const [allTags, setAllTags] = useState<string[]>([])
+  const [groups, setGroups] = useState<BrowserGroupWithCount[]>([])
+  const [profileGroupIds, setProfileGroupIds] = useState<string[]>([])
+  const [scopeDraft, setScopeDraft] = useState<ScopeDraft | null>(null)
 
   useEffect(() => {
     fetchBookmarks().then(setItems)
+    fetchAllTags().then(setAllTags).catch(() => setAllTags([]))
+    fetchGroups().then(setGroups).catch(() => setGroups([]))
+    fetchBrowserProfiles()
+      .then(profiles => setProfileGroupIds(Array.from(new Set(profiles.map(p => (p.groupId || '').trim()).filter(Boolean)))))
+      .catch(() => setProfileGroupIds([]))
   }, [])
 
-  const handleChange = (index: number, field: keyof BrowserBookmark, value: string) => {
+  const groupNameById = useMemo(() => new Map(groups.map(g => [g.groupId, g.groupName])), [groups])
+  const groupLabel = (groupId: string) => groupNameById.get(groupId) || groupId
+
+  const describeScope = (item: BrowserBookmark) => {
+    const tags = item.openTags || []
+    const groupIds = item.openGroupIds || []
+    if (tags.length === 0 && groupIds.length === 0) return '所有实例'
+    const parts: string[] = []
+    if (tags.length > 0) parts.push(`标签：${tags.join('、')}`)
+    if (groupIds.length > 0) parts.push(`分组：${groupIds.map(groupLabel).join('、')}`)
+    return parts.join('；')
+  }
+
+  const handleChange = (index: number, field: 'name' | 'url', value: string) => {
     setItems(prev => prev.map((item, i) => i === index ? { ...item, [field]: value } : item))
   }
 
   const handleAdd = () => {
-    setItems(prev => [...prev, { name: '', url: '', openOnStart: false }])
+    setItems(prev => [...prev, { name: '', url: '', openOnStart: false, openTags: [], openGroupIds: [] }])
   }
 
   const handleDelete = (index: number) => {
@@ -31,6 +70,59 @@ export function BookmarkSettingsPage() {
   const handleOpenOnStartChange = (index: number, checked: boolean) => {
     setItems(prev => prev.map((item, i) => i === index ? { ...item, openOnStart: checked } : item))
   }
+
+  const openScopeEditor = (index: number) => {
+    const item = items[index]
+    const tags = new Set(item.openTags || [])
+    const groupIds = new Set(item.openGroupIds || [])
+    setScopeDraft({ index, mode: tags.size + groupIds.size > 0 ? 'custom' : 'all', tags, groupIds })
+  }
+
+  const toggleScopeValue = (kind: 'tags' | 'groupIds', value: string) => {
+    setScopeDraft(prev => {
+      if (!prev) return prev
+      const next = new Set(prev[kind])
+      next.has(value) ? next.delete(value) : next.add(value)
+      return { ...prev, mode: 'custom', [kind]: next }
+    })
+  }
+
+  const handleScopeConfirm = () => {
+    if (!scopeDraft) return
+    const custom = scopeDraft.mode === 'custom'
+    if (custom && scopeDraft.tags.size + scopeDraft.groupIds.size === 0) {
+      toast.error('请至少选一个标签或分组，或者改成「所有实例」')
+      return
+    }
+    setItems(prev => prev.map((item, i) => i === scopeDraft.index
+      ? { ...item, openTags: custom ? Array.from(scopeDraft.tags) : [], openGroupIds: custom ? Array.from(scopeDraft.groupIds) : [] }
+      : item))
+    setScopeDraft(null)
+  }
+
+  const scopeTagOptions = useMemo(() => {
+    const merged = new Set(allTags)
+    scopeDraft?.tags.forEach(tag => merged.add(tag))
+    return Array.from(merged).sort((a, b) => a.localeCompare(b, 'zh-CN'))
+  }, [allTags, scopeDraft])
+
+  const scopeGroupOptions = useMemo(() => {
+    const options = flattenGroups(groups).map(g => ({ id: g.groupId, label: `${'　'.repeat(g.level)}${g.groupName}`, note: '' }))
+    const known = new Set(options.map(o => o.id))
+    profileGroupIds.forEach(id => {
+      if (!known.has(id)) {
+        known.add(id)
+        options.push({ id, label: id, note: '实例上有这个分组，但分组列表里没有登记' })
+      }
+    })
+    scopeDraft?.groupIds.forEach(id => {
+      if (!known.has(id)) {
+        known.add(id)
+        options.push({ id, label: id, note: '这个分组已经不存在' })
+      }
+    })
+    return options
+  }, [groups, profileGroupIds, scopeDraft])
 
   const handleSave = async () => {
     const valid = items.filter(i => i.name.trim() && i.url.trim())
@@ -52,6 +144,8 @@ export function BookmarkSettingsPage() {
       } else {
         toast.success(message)
       }
+    } catch (error: any) {
+      toast.error(error?.message || '保存失败')
     } finally {
       setSaving(false)
     }
@@ -100,6 +194,8 @@ export function BookmarkSettingsPage() {
   }
   const handleDragEnd = () => setDragIndex(null)
 
+  const scopeBookmark = scopeDraft ? items[scopeDraft.index] : null
+
   return (
     <div className="space-y-5 animate-fade-in">
       <div className="flex items-center justify-between">
@@ -120,7 +216,7 @@ export function BookmarkSettingsPage() {
         </div>
       </div>
 
-      <Card title={`书签列表（${items.length} 项）`} subtitle="拖拽左侧图标可调整顺序">
+      <Card title={`书签列表（${items.length} 项）`} subtitle="拖拽左侧图标可调整顺序；勾了「启动打开」后，可以点右边的范围按钮限定只对某些标签或分组的实例打开">
         <div className="space-y-2">
           {items.map((item, index) => (
             <div
@@ -157,6 +253,17 @@ export function BookmarkSettingsPage() {
                 />
                 启动打开
               </label>
+              {item.openOnStart && (
+                <button
+                  type="button"
+                  onClick={() => openScopeEditor(index)}
+                  title={`启动打开的范围：${describeScope(item)}`}
+                  className="flex items-center gap-1 max-w-[220px] shrink-0 px-2.5 py-1 rounded-lg text-xs border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-strong)] transition-colors"
+                >
+                  <Filter className="w-3 h-3 shrink-0" />
+                  <span className="truncate">{describeScope(item)}</span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => handleDelete(index)}
@@ -183,6 +290,80 @@ export function BookmarkSettingsPage() {
           添加书签
         </button>
       </Card>
+
+      <Modal
+        open={scopeDraft !== null}
+        onClose={() => setScopeDraft(null)}
+        title={`启动打开的范围${scopeBookmark?.name ? `：${scopeBookmark.name}` : ''}`}
+        width="560px"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setScopeDraft(null)}>取消</Button>
+            <Button onClick={handleScopeConfirm}>确定</Button>
+          </>
+        }
+      >
+        {scopeDraft && (
+          <div className="space-y-5">
+            <div className="flex gap-2">
+              <button type="button" className={chipClass(scopeDraft.mode === 'all')} onClick={() => setScopeDraft(prev => prev && { ...prev, mode: 'all' })}>
+                所有实例
+              </button>
+              <button type="button" className={chipClass(scopeDraft.mode === 'custom')} onClick={() => setScopeDraft(prev => prev && { ...prev, mode: 'custom' })}>
+                只对选中的标签或分组
+              </button>
+            </div>
+
+            <div className={scopeDraft.mode === 'all' ? 'space-y-5 opacity-50' : 'space-y-5'}>
+              <div>
+                <p className="text-sm font-medium text-[var(--color-text-primary)] mb-2">标签</p>
+                {scopeTagOptions.length === 0 ? (
+                  <p className="text-xs text-[var(--color-text-muted)]">还没有任何标签，可以先在实例上加标签。</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {scopeTagOptions.map(tag => (
+                      <button
+                        key={tag}
+                        type="button"
+                        className={chipClass(scopeDraft.mode === 'custom' && scopeDraft.tags.has(tag))}
+                        title={allTags.includes(tag) ? undefined : '现在已经没有实例用这个标签'}
+                        onClick={() => toggleScopeValue('tags', tag)}
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <p className="text-sm font-medium text-[var(--color-text-primary)] mb-2">分组</p>
+                {scopeGroupOptions.length === 0 ? (
+                  <p className="text-xs text-[var(--color-text-muted)]">还没有任何分组。</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {scopeGroupOptions.map(option => (
+                      <button
+                        key={option.id}
+                        type="button"
+                        className={chipClass(scopeDraft.mode === 'custom' && scopeDraft.groupIds.has(option.id))}
+                        title={option.note || undefined}
+                        onClick={() => toggleScopeValue('groupIds', option.id)}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <p className="text-xs text-[var(--color-text-muted)]">
+              实例带有任一选中的标签，或者在任一选中的分组里，启动时就会打开这个书签；其它实例不打开。改完记得点页面右上角的「保存」。
+            </p>
+          </div>
+        )}
+      </Modal>
 
       <ConfirmModal
         open={resetOpen}

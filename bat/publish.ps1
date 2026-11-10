@@ -623,7 +623,7 @@ try {
         }
     }
     Write-Host ""
-    Write-Host "提示：用户安装后可将旧的 data\ 目录粘贴到安装目录覆盖初始数据"
+    Write-Host "提示：已经装过的电脑直接装到原目录就是升级，data\ 和 config.yaml 不会被改动；全新安装才是空数据"
     exit 0
 }
 catch {

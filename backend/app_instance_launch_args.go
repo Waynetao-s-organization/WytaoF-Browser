@@ -54,17 +54,17 @@ func browserDefaultStartURLs(cfg *config.Config) []string {
 	return config.DefaultBrowserStartURLs()
 }
 
-func (a *App) browserDefaultStartURLs() []string {
-	return mergeStartURLs(browserDefaultStartURLs(a.config), bookmarkStartURLs(a.BookmarkList()))
+func (a *App) browserDefaultStartURLs(profile *BrowserProfile) []string {
+	return mergeStartURLs(browserDefaultStartURLs(a.config), bookmarkStartURLs(a.BookmarkList(), profile))
 }
 
-func bookmarkStartURLs(bookmarks []BrowserBookmark) []string {
+func bookmarkStartURLs(bookmarks []BrowserBookmark, profile *BrowserProfile) []string {
 	if len(bookmarks) == 0 {
 		return nil
 	}
 	urls := make([]string, 0, len(bookmarks))
 	for _, bookmark := range bookmarks {
-		if bookmark.OpenOnStart {
+		if bookmarkOpensForProfile(bookmark, profile) {
 			urls = append(urls, bookmark.URL)
 		}
 	}

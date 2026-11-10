@@ -123,6 +123,23 @@ export async function updateBrowserProfile(profileId: string, input: BrowserProf
   return nextProfiles[index]
 }
 
+export async function renameBrowserProfile(profileId: string, profileName: string): Promise<BrowserProfile | null> {
+  const bindings: any = await getBindings()
+  if (bindings?.BrowserProfileRename) {
+    return (await bindings.BrowserProfileRename(profileId, profileName)) || null
+  }
+
+  const name = profileName.trim()
+  if (!name) {
+    throw new Error('实例名称不能为空')
+  }
+  const nextProfiles = getMockProfiles().map((profile) =>
+    profile.profileId === profileId ? { ...profile, profileName: name, updatedAt: nowISOString() } : profile,
+  )
+  setMockProfiles(nextProfiles)
+  return nextProfiles.find((profile) => profile.profileId === profileId) || null
+}
+
 export async function deleteBrowserProfile(profileId: string): Promise<boolean> {
   const bindings: any = await getBindings()
   if (bindings?.BrowserProfileDelete) {

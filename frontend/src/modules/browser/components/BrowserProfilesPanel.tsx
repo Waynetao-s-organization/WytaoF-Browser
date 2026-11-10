@@ -6,7 +6,7 @@ import type { TableColumn } from '../../../shared/components/Table'
 
 import type { BrowserCore, BrowserProfile, BrowserProxy } from '../types'
 import type { BrowserViewMode } from './BrowserListLayout'
-import { KeywordInlineRow, LaunchCodeCell } from './BrowserListWidgets'
+import { KeywordInlineRow, LaunchCodeCell, ProfileNameCell } from './BrowserListWidgets'
 
 type ProfileStatusVariant = 'default' | 'success' | 'error' | 'warning' | 'info'
 
@@ -37,6 +37,7 @@ interface BrowserProfilesPanelProps {
   onOpenKeywords: (profile: BrowserProfile) => void
   onOpenCopy: (profile: BrowserProfile) => void
   onDelete: (profileId: string) => void
+  onRename: (profileId: string, profileName: string) => Promise<void>
 }
 
 const formatTime = (value?: string) => {
@@ -76,6 +77,7 @@ function BrowserProfileCard({
   onOpenKeywords,
   onOpenCopy,
   onDelete,
+  onRename,
 }: {
   profile: BrowserProfile
   proxy: BrowserProxy | undefined
@@ -93,6 +95,7 @@ function BrowserProfileCard({
   onOpenKeywords: (profile: BrowserProfile) => void
   onOpenCopy: (profile: BrowserProfile) => void
   onDelete: (profileId: string) => void
+  onRename: (profileId: string, profileName: string) => Promise<void>
 }) {
   return (
     <div
@@ -109,9 +112,12 @@ function BrowserProfileCard({
               checked={isSelected}
               onChange={() => onToggleSelect(profile.profileId)}
             />
-            <Link className="text-[var(--color-accent)] font-medium text-sm hover:text-[var(--color-accent)] transition-colors truncate max-w-[200px]" to={`/browser/detail/${profile.profileId}`}>
-              {profile.profileName}
-            </Link>
+            <ProfileNameCell
+              profileId={profile.profileId}
+              profileName={profile.profileName}
+              onRename={onRename}
+              className="max-w-[220px]"
+            />
             {profile.tags && profile.tags.length > 0 && (
               <div className="flex gap-1 ml-1">
                 {profile.tags.map(tag => <Badge variant="default" key={tag}>{tag}</Badge>)}
@@ -198,6 +204,7 @@ export function BrowserProfilesPanel({
   onOpenKeywords,
   onOpenCopy,
   onDelete,
+  onRename,
 }: BrowserProfilesPanelProps) {
   const allSelected = profiles.length > 0 && selectedIds.size === profiles.length
   const partiallySelected = selectedIds.size > 0 && selectedIds.size < profiles.length
@@ -237,11 +244,10 @@ export function BrowserProfilesPanel({
     {
       key: 'profileName',
       title: '实例名称',
+      width: 200,
       render: (value, record) => (
-        <div className="flex flex-col gap-1">
-          <Link className="text-[var(--color-accent)] text-sm font-medium hover:underline" to={`/browser/detail/${record.profileId}`}>
-            {value}
-          </Link>
+        <div className="flex flex-col gap-1 w-[168px]">
+          <ProfileNameCell profileId={record.profileId} profileName={value} onRename={onRename} />
           {record.tags && record.tags.length > 0 && (
             <div className="flex gap-1 flex-wrap">
               {record.tags.map(tag => <Badge variant="default" key={tag}>{tag}</Badge>)}
@@ -253,10 +259,39 @@ export function BrowserProfilesPanel({
     {
       key: 'running',
       title: '状态',
-      width: 100,
+      width: 120,
       render: (_, record) => {
         const status = getProfileStatus(record)
-        return <Badge variant={status.variant} dot>{status.label}</Badge>
+        return <span className="whitespace-nowrap"><Badge variant={status.variant} dot>{status.label}</Badge></span>
+      },
+    },
+    {
+      key: 'actions',
+      title: '操作',
+      width: 236,
+      render: (_, record) => {
+        const isStarting = isProfileStarting(record.profileId)
+        const isStopping = isProfileStopping(record.profileId)
+        const isBusy = isProfileBusy(record.profileId)
+
+        return (
+          <div className="flex gap-1 whitespace-nowrap">
+            {record.running ? (
+              <Button size="sm" variant="secondary" onClick={() => onStop(record.profileId)} title="停止" loading={isStopping}>
+                {!isStopping && <Square className="w-3.5 h-3.5" />}
+              </Button>
+            ) : (
+              <Button size="sm" onClick={() => onStart(record.profileId)} title="启动" loading={isStarting}>
+                {!isStarting && <Play className="w-3.5 h-3.5 fill-current" />}
+              </Button>
+            )}
+            <Button size="sm" variant="ghost" onClick={() => onRestart(record.profileId)} title="重启" disabled={isBusy}><RotateCcw className="w-3.5 h-3.5" /></Button>
+            <Button size="sm" variant="ghost" onClick={() => onOpenKeywords(record)} title="关键字" disabled={isBusy}><Key className="w-3.5 h-3.5" /></Button>
+            <Link to={`/browser/edit/${record.profileId}`}><Button size="sm" variant="ghost" title="配置" disabled={isBusy}><Settings className="w-3.5 h-3.5" /></Button></Link>
+            <Button size="sm" variant="ghost" onClick={() => onOpenCopy(record)} title="克隆" disabled={isBusy}><Copy className="w-3.5 h-3.5" /></Button>
+            <Button size="sm" variant="ghost" onClick={() => onDelete(record.profileId)} title="删除" disabled={isBusy}><Trash2 className="w-3.5 h-3.5 text-red-500" /></Button>
+          </div>
+        )
       },
     },
     {
@@ -287,35 +322,6 @@ export function BrowserProfilesPanel({
       key: 'updatedAt',
       title: '上次更新',
       render: formatTime,
-    },
-    {
-      key: 'actions',
-      title: '操作',
-      align: 'right',
-      render: (_, record) => {
-        const isStarting = isProfileStarting(record.profileId)
-        const isStopping = isProfileStopping(record.profileId)
-        const isBusy = isProfileBusy(record.profileId)
-
-        return (
-          <div className="flex justify-end gap-1">
-            {record.running ? (
-              <Button size="sm" variant="secondary" onClick={() => onStop(record.profileId)} title="停止" loading={isStopping}>
-                {!isStopping && <Square className="w-3.5 h-3.5" />}
-              </Button>
-            ) : (
-              <Button size="sm" onClick={() => onStart(record.profileId)} title="启动" loading={isStarting}>
-                {!isStarting && <Play className="w-3.5 h-3.5 fill-current" />}
-              </Button>
-            )}
-            <Button size="sm" variant="ghost" onClick={() => onRestart(record.profileId)} title="重启" disabled={isBusy}><RotateCcw className="w-3.5 h-3.5" /></Button>
-            <Button size="sm" variant="ghost" onClick={() => onOpenKeywords(record)} title="关键字" disabled={isBusy}><Key className="w-3.5 h-3.5" /></Button>
-            <Link to={`/browser/edit/${record.profileId}`}><Button size="sm" variant="ghost" title="配置" disabled={isBusy}><Settings className="w-3.5 h-3.5" /></Button></Link>
-            <Button size="sm" variant="ghost" onClick={() => onOpenCopy(record)} title="克隆" disabled={isBusy}><Copy className="w-3.5 h-3.5" /></Button>
-            <Button size="sm" variant="ghost" onClick={() => onDelete(record.profileId)} title="删除" disabled={isBusy}><Trash2 className="w-3.5 h-3.5 text-red-500" /></Button>
-          </div>
-        )
-      },
     },
   ]
 
@@ -353,6 +359,7 @@ export function BrowserProfilesPanel({
                 onOpenKeywords={onOpenKeywords}
                 onOpenCopy={onOpenCopy}
                 onDelete={onDelete}
+                onRename={onRename}
               />
             ))}
           </div>

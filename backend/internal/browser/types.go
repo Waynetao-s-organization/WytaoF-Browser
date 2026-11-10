@@ -117,6 +117,8 @@ type Settings struct {
 	DefaultLaunchArgs      []string `json:"defaultLaunchArgs"`
 	DefaultStartURLs       []string `json:"defaultStartUrls"`
 	RestoreLastSession     bool     `json:"restoreLastSession"`
+	StartPageDisabled      bool     `json:"startPageDisabled"`
+	WindowTitleDisabled    bool     `json:"windowTitleDisabled"`
 	StartReadyTimeoutMs    int      `json:"startReadyTimeoutMs"`
 	StartStableWindowMs    int      `json:"startStableWindowMs"`
 }

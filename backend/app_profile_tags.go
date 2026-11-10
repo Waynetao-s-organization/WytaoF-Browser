@@ -133,5 +133,8 @@ func (a *App) BrowserRenameTag(oldName string, newName string) error {
 	if changedCount > 0 {
 		log.Info("重命名标签成功", logger.F("old", oldName), logger.F("new", newName), logger.F("changed_profiles", changedCount))
 	}
+	if err := a.renameBookmarkScopeTag(oldName, newName); err != nil {
+		log.Error("书签启动范围里的标签改名失败", logger.F("old", oldName), logger.F("new", newName), logger.F("error", err))
+	}
 	return nil
 }

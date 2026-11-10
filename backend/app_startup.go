@@ -59,6 +59,7 @@ func (a *App) startup(ctx context.Context) {
 	a.startupInitAutomation()
 	a.startupInitBridgeHooks()
 	a.startupInitSpeedScheduler()
+	a.startInstanceWindowTitler()
 
 	log.Info("应用启动成功")
 }
@@ -140,6 +141,7 @@ func (a *App) startupInitManagers(cfg *config.Config, db *database.DB) {
 	a.migrateToSQLite()
 
 	a.browserMgr.InitData()
+	a.registerDetectedCores(false)
 	a.autoDetectCores()
 	a.loadProxies()
 	a.reconcileProfileProxyBindings()

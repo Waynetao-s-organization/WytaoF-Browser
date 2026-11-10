@@ -133,6 +133,7 @@ func (a *App) stopTrackedBrowserProcesses() {
 
 func (a *App) finalizeShutdown() {
 	a.finalizeOnce.Do(func() {
+		a.stopInstanceWindowTitler()
 		if a.launchServer != nil {
 			_ = a.launchServer.Stop()
 		}

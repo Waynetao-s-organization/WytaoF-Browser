@@ -46,7 +46,7 @@ func (a *App) BookmarkList() []BrowserBookmark {
 	if len(a.config.Browser.DefaultBookmarks) > 0 {
 		return mergeBookmarksByURL(a.config.Browser.DefaultBookmarks, verificationBookmarkList)
 	}
-	return append([]BrowserBookmark{}, defaultBookmarkList...)
+	return mergeBookmarksByURL(defaultBookmarkList, nil)
 }
 
 // BookmarkSave 保存默认书签列表（优先 SQLite，降级 config.yaml）
@@ -57,7 +57,13 @@ func (a *App) BookmarkSave(items []BrowserBookmark) error {
 		name := strings.TrimSpace(item.Name)
 		url := strings.TrimSpace(item.URL)
 		if name != "" && url != "" {
-			valid = append(valid, BrowserBookmark{Name: name, URL: url, OpenOnStart: item.OpenOnStart})
+			valid = append(valid, BrowserBookmark{
+				Name:         name,
+				URL:          url,
+				OpenOnStart:  item.OpenOnStart,
+				OpenTags:     browser.NormalizeBookmarkScope(item.OpenTags),
+				OpenGroupIds: browser.NormalizeBookmarkScope(item.OpenGroupIds),
+			})
 		}
 	}
 	valid = mergeBookmarksByURL(valid, verificationBookmarkList)
@@ -100,7 +106,13 @@ func mergeBookmarksByURL(items []BrowserBookmark, required []BrowserBookmark) []
 			return
 		}
 		seen[key] = struct{}{}
-		merged = append(merged, BrowserBookmark{Name: name, URL: url, OpenOnStart: item.OpenOnStart})
+		merged = append(merged, BrowserBookmark{
+			Name:         name,
+			URL:          url,
+			OpenOnStart:  item.OpenOnStart,
+			OpenTags:     browser.NormalizeBookmarkScope(item.OpenTags),
+			OpenGroupIds: browser.NormalizeBookmarkScope(item.OpenGroupIds),
+		})
 	}
 	for _, item := range items {
 		appendOne(item)
@@ -109,6 +121,60 @@ func mergeBookmarksByURL(items []BrowserBookmark, required []BrowserBookmark) []
 		appendOne(item)
 	}
 	return merged
+}
+
+func bookmarkOpensForProfile(bookmark BrowserBookmark, profile *BrowserProfile) bool {
+	if !bookmark.OpenOnStart {
+		return false
+	}
+	tags := browser.NormalizeBookmarkScope(bookmark.OpenTags)
+	groupIds := browser.NormalizeBookmarkScope(bookmark.OpenGroupIds)
+	if len(tags) == 0 && len(groupIds) == 0 {
+		return true
+	}
+	if profile == nil {
+		return false
+	}
+	for _, tag := range tags {
+		for _, owned := range profile.Tags {
+			if strings.EqualFold(strings.TrimSpace(owned), tag) {
+				return true
+			}
+		}
+	}
+	groupId := strings.TrimSpace(profile.GroupId)
+	if groupId != "" {
+		for _, item := range groupIds {
+			if item == groupId {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (a *App) renameBookmarkScopeTag(oldName string, newName string) error {
+	if a.browserMgr == nil || a.browserMgr.BookmarkDAO == nil {
+		return nil
+	}
+	list, err := a.browserMgr.BookmarkDAO.List()
+	if err != nil {
+		return err
+	}
+	changed := false
+	for i := range list {
+		for j, tag := range list[i].OpenTags {
+			if strings.EqualFold(tag, oldName) {
+				list[i].OpenTags[j] = newName
+				changed = true
+			}
+		}
+		list[i].OpenTags = browser.NormalizeBookmarkScope(list[i].OpenTags)
+	}
+	if !changed {
+		return nil
+	}
+	return a.browserMgr.BookmarkDAO.ReplaceAll(list)
 }
 
 // BookmarkSyncToProfiles 将当前默认书签增量同步到已有未运行实例。

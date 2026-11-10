@@ -202,6 +202,10 @@ export function BrowserInstanceStartByCode(arg1) {
   return window['go']['main']['App']['BrowserInstanceStartByCode'](arg1);
 }
 
+export function BrowserInstanceStartByCodeForScript(arg1) {
+  return window['go']['main']['App']['BrowserInstanceStartByCodeForScript'](arg1);
+}
+
 export function BrowserInstanceStartDirect(arg1) {
   return window['go']['main']['App']['BrowserInstanceStartDirect'](arg1);
 }
@@ -256,6 +260,10 @@ export function BrowserProfileListByTag(arg1) {
 
 export function BrowserProfileRegenerateCode(arg1) {
   return window['go']['main']['App']['BrowserProfileRegenerateCode'](arg1);
+}
+
+export function BrowserProfileRename(arg1, arg2) {
+  return window['go']['main']['App']['BrowserProfileRename'](arg1, arg2);
 }
 
 export function BrowserProfileSetCode(arg1, arg2) {

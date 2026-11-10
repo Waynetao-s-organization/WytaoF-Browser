@@ -109,6 +109,8 @@ export function BrowserInstanceStart(arg1:string):Promise<browser.Profile>;
 
 export function BrowserInstanceStartByCode(arg1:string):Promise<browser.Profile>;
 
+export function BrowserInstanceStartByCodeForScript(arg1:string):Promise<browser.Profile>;
+
 export function BrowserInstanceStartDirect(arg1:string):Promise<browser.Profile>;
 
 export function BrowserInstanceStartWithParams(arg1:string,arg2:Array<string>,arg3:Array<string>,arg4:boolean):Promise<browser.Profile>;
@@ -136,6 +138,8 @@ export function BrowserProfileList():Promise<Array<browser.Profile>>;
 export function BrowserProfileListByTag(arg1:string):Promise<Array<browser.Profile>>;
 
 export function BrowserProfileRegenerateCode(arg1:string):Promise<string>;
+
+export function BrowserProfileRename(arg1:string,arg2:string):Promise<browser.Profile>;
 
 export function BrowserProfileSetCode(arg1:string,arg2:string):Promise<string>;
 

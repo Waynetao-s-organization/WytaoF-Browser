@@ -78,6 +78,9 @@ func (a *App) ensureDefaultCores() {
 	// 配置已有内核：将扫描到的新目录追加进去（不覆盖已有的）
 	changed := false
 	for _, newCore := range detected {
+		if a.isIgnoredCorePath(newCore.CorePath) {
+			continue
+		}
 		exists := false
 		for _, existing := range a.config.Browser.Cores {
 			if existing.CorePath == newCore.CorePath {
@@ -100,7 +103,7 @@ func (a *App) ensureDefaultCores() {
 
 func (a *App) autoDetectCores() {
 	log := logger.New("Browser")
-	// ensureDefaultCores 已完成扫描注册，这里只做路径有效性日志。
+	// 新目录的登记由 registerDetectedCores 负责，这里只做路径有效性日志。
 	// SQLite 模式下以内核表为准，避免与 config.yaml 历史条目不一致。
 	cores := a.config.Browser.Cores
 	if a.browserMgr != nil {

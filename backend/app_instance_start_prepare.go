@@ -19,6 +19,7 @@ type browserStartInput struct {
 	ForceDirectProxy     bool
 	TemporaryProxyID     string
 	TemporaryProxyConfig string
+	ShowStartPage        bool
 }
 
 type browserStartPlan struct {
@@ -26,6 +27,8 @@ type browserStartPlan struct {
 	chromeBinaryPath      string
 	userDataDir           string
 	args                  []string
+	startPageURL          string
+	restoreLastSession    bool
 	effectiveProxy        string
 	acquiredXrayBridgeKey string
 	releaseXrayBridge     bool
@@ -139,11 +142,20 @@ func (a *App) prepareBrowserStartPlan(input browserStartInput, profile *BrowserP
 		return nil, startErr
 	}
 
+	restoreLastSession := browserRestoreLastSession(a.config)
+	startPageURL := a.prepareStartPageURL(input, profile, userDataDir, effectiveProxy)
+	defaultStartURLs := a.browserDefaultStartURLs(profile)
+	if startPageURL != "" && !restoreLastSession {
+		defaultStartURLs = append([]string{startPageURL}, defaultStartURLs...)
+	}
+
 	return &browserStartPlan{
 		profile:               profile,
 		chromeBinaryPath:      chromeBinaryPath,
 		userDataDir:           userDataDir,
-		args:                  buildBrowserLaunchArgs(profile, userDataDir, assignedDebugPort, effectiveProxy, sanitizedProfileLaunchArgs, sanitizedExtraLaunchArgs, input.StartURLs, a.browserDefaultStartURLs(), input.SkipDefaultStartURLs, browserRestoreLastSession(a.config)),
+		args:                  buildBrowserLaunchArgs(profile, userDataDir, assignedDebugPort, effectiveProxy, sanitizedProfileLaunchArgs, sanitizedExtraLaunchArgs, input.StartURLs, defaultStartURLs, input.SkipDefaultStartURLs, restoreLastSession),
+		startPageURL:          startPageURL,
+		restoreLastSession:    restoreLastSession,
 		effectiveProxy:        effectiveProxy,
 		acquiredXrayBridgeKey: acquiredXrayBridgeKey,
 		releaseXrayBridge:     releaseXrayBridge,
@@ -195,6 +207,12 @@ func (a *App) prepareBrowserLaunchContext(input browserStartInput, profile *Brow
 
 	if err := browser.EnsureDefaultBookmarks(userDataDir, a.BookmarkList()); err != nil {
 		log.Error("默认书签写入失败", logger.F("error", err.Error()))
+	}
+
+	if a.instanceNameOnWindowEnabled() {
+		if _, err := browser.EnsureProfileDisplayName(userDataDir, profile.ProfileName); err != nil {
+			log.Warn("账户名称同步失败，不影响启动", logger.F("profile_id", input.ProfileID), logger.F("error", err.Error()))
+		}
 	}
 
 	if !browserRestoreLastSession(a.config) {

@@ -165,6 +165,14 @@ var migrations = []migration{
 			`CREATE INDEX IF NOT EXISTS idx_browser_profile_templates_created_at ON browser_profile_templates(created_at)`,
 		},
 	},
+	{
+		version: 9,
+		desc:    "书签表添加启动打开的标签和分组范围",
+		stmts: []string{
+			`ALTER TABLE browser_bookmarks ADD COLUMN open_tags TEXT NOT NULL DEFAULT '[]'`,
+			`ALTER TABLE browser_bookmarks ADD COLUMN open_group_ids TEXT NOT NULL DEFAULT '[]'`,
+		},
+	},
 	// ── 新版本在此追加，格式：
 	// {
 	//     version: 4,

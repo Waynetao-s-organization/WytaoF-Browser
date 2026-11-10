@@ -18,6 +18,7 @@ import {
   fetchBrowserProxies,
   fetchBrowserSettings,
   fetchGroups,
+  renameBrowserProfile,
   restartBrowserInstance,
   saveBrowserCore,
   saveBrowserSettings,
@@ -127,6 +128,8 @@ export function BrowserListPage() {
     defaultLaunchArgs: [],
     defaultStartUrls: [],
     restoreLastSession: false,
+    startPageDisabled: false,
+    windowTitleDisabled: false,
     startReadyTimeoutMs: 3000,
     startStableWindowMs: 1200,
   })
@@ -468,6 +471,20 @@ export function BrowserListPage() {
     loadProfiles()
   }
 
+  const handleRename = async (profileId: string, profileName: string) => {
+    try {
+      const renamed = await renameBrowserProfile(profileId, profileName)
+      if (!renamed) {
+        throw new Error('实例不存在，请刷新列表后重试')
+      }
+      mergeProfileState(renamed)
+      toast.success(`名称已改为：${renamed.profileName}`)
+    } catch (error: any) {
+      toast.error(resolveActionErrorMessage(error, '改名失败'))
+      throw error
+    }
+  }
+
   // 批量操作
   const toggleSelect = (profileId: string) => {
     setSelectedIds(prev => {
@@ -718,6 +735,7 @@ export function BrowserListPage() {
         onOpenKeywords={openKwModal}
         onOpenCopy={openCopyModal}
         onDelete={(profileId) => { void handleDelete(profileId) }}
+        onRename={handleRename}
       />
 
       <BrowserListSettingsModal

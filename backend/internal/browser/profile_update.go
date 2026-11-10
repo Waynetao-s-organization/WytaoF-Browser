@@ -57,6 +57,49 @@ func (m *Manager) Update(profileId string, input ProfileInput) (*Profile, error)
 	return profile, nil
 }
 
+const maxProfileNameRunes = 100
+
+// Rename 只修改实例名称，不影响其他字段
+func (m *Manager) Rename(profileId string, profileName string) (*Profile, error) {
+	log := logger.New("Browser")
+	m.InitData()
+	m.Mutex.Lock()
+	defer m.Mutex.Unlock()
+
+	profile, exists := m.Profiles[profileId]
+	if !exists {
+		return nil, fmt.Errorf("profile not found")
+	}
+	name := strings.TrimSpace(profileName)
+	if name == "" {
+		return nil, fmt.Errorf("实例名称不能为空")
+	}
+	if len([]rune(name)) > maxProfileNameRunes {
+		return nil, fmt.Errorf("实例名称不能超过 %d 个字", maxProfileNameRunes)
+	}
+	if name == profile.ProfileName {
+		return profile, nil
+	}
+
+	previous, previousUpdatedAt := profile.ProfileName, profile.UpdatedAt
+	profile.ProfileName = name
+	profile.UpdatedAt = time.Now().Format(time.RFC3339)
+
+	var err error
+	if m.ProfileDAO != nil {
+		err = m.ProfileDAO.Upsert(profile)
+	} else {
+		err = m.SaveProfiles()
+	}
+	if err != nil {
+		profile.ProfileName, profile.UpdatedAt = previous, previousUpdatedAt
+		log.Error("实例改名保存失败", logger.F("profile_id", profileId), logger.F("error", err))
+		return nil, err
+	}
+	log.Info("实例改名", logger.F("profile_id", profileId), logger.F("profile_name", name))
+	return profile, nil
+}
+
 // SetKeywords 设置实例关键字（独立接口，不影响其他字段）
 func (m *Manager) SetKeywords(profileId string, keywords []string) (*Profile, error) {
 	log := logger.New("Browser")

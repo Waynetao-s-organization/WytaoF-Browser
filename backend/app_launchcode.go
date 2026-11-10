@@ -9,7 +9,7 @@ import (
 
 // StartInstance 实现 launchcode.BrowserStarter 接口
 func (a *App) StartInstance(profileId string) (*browser.Profile, error) {
-	return a.BrowserInstanceStart(profileId)
+	return a.browserInstanceStartInternal(profileId, nil, nil, false, false, false, "", "")
 }
 
 // StartInstanceWithParams 实现 launchcode.BrowserStarterWithParams 接口
@@ -74,16 +74,30 @@ func (a *App) BrowserProfileSetCode(profileId string, code string) (string, erro
 	return a.launchCodeSvc.SetCode(profileId, code)
 }
 
+func (a *App) resolveLaunchCode(code string) (string, error) {
+	if a.launchCodeSvc == nil {
+		return "", fmt.Errorf("launch code service not initialized")
+	}
+	return a.launchCodeSvc.Resolve(code)
+}
+
 // BrowserInstanceStartByCode 通过 LaunchCode 启动实例（Wails 绑定）
 func (a *App) BrowserInstanceStartByCode(code string) (*browser.Profile, error) {
-	if a.launchCodeSvc == nil {
-		return nil, fmt.Errorf("launch code service not initialized")
-	}
-	profileId, err := a.launchCodeSvc.Resolve(code)
+	profileId, err := a.resolveLaunchCode(code)
 	if err != nil {
 		return nil, err
 	}
 	return a.BrowserInstanceStart(profileId)
+}
+
+// BrowserInstanceStartByCodeForScript 通过 LaunchCode 启动实例，不打开环境检测页；
+// 界面里运行自动化脚本前的预启动走这里（Wails 绑定）
+func (a *App) BrowserInstanceStartByCodeForScript(code string) (*browser.Profile, error) {
+	profileId, err := a.resolveLaunchCode(code)
+	if err != nil {
+		return nil, err
+	}
+	return a.browserInstanceStartInternal(profileId, nil, nil, false, false, false, "", "")
 }
 
 // GetLaunchServerInfo 返回 LaunchServer 的当前监听信息（Wails 绑定）
