@@ -20,7 +20,8 @@ export interface FingerprintConfig {
   brand?: string           // --fingerprint-brand=
   platform?: string        // --fingerprint-platform=
   lang?: string            // --lang=
-  timezone?: string        // --timezone=
+  timezone?: string        // --timezone=（具体时区、'system' 或 'custom'）
+  customTimezone?: string  // 当 timezone === 'custom' 时使用
 
   // 屏幕与窗口
   resolution?: string      // --window-size=（预设值或 'custom'）
@@ -65,10 +66,13 @@ export const KEY_MAP: Record<string, keyof FingerprintConfig> = {
   '--window-size': 'resolution',
   '--fingerprint-color-depth': 'colorDepth',
   '--fingerprint-hardware-concurrency': 'hardwareConcurrency',
+  '--fingerprint-memory': 'deviceMemory',
   '--fingerprint-device-memory': 'deviceMemory',
   '--fingerprint-canvas-noise': 'canvasNoise',
   '--fingerprint-webgl-vendor': 'webglVendor',
+  '--fingerprint-gpu-vendor': 'webglVendor',
   '--fingerprint-webgl-renderer': 'webglRenderer',
+  '--fingerprint-gpu-renderer': 'webglRenderer',
   '--fingerprint-audio-noise': 'audioNoise',
   '--fingerprint-fonts': 'fonts',
   '--webrtc-ip-handling-policy': 'webrtcPolicy',
@@ -82,20 +86,24 @@ export function serialize(config: FingerprintConfig): string[] {
   const args: string[] = []
   if (config.seed) args.push(`--fingerprint=${config.seed}`)
   if (config.brand) args.push(`--fingerprint-brand=${config.brand}`)
-  if (config.platform) args.push(`--fingerprint-platform=${config.platform}`)
+  if (config.platform) {
+    const plat = config.platform === 'mac' ? 'macos' : config.platform
+    args.push(`--fingerprint-platform=${plat}`)
+  }
   if (config.lang) args.push(`--lang=${config.lang}`)
-  if (config.timezone) {
+  const rawTz = config.timezone === 'custom' ? config.customTimezone?.trim() : config.timezone
+  if (rawTz) {
     // 如果是 system，替换为实际系统时区
-    const tz = config.timezone === 'system' ? getSystemTimezone() : config.timezone
-    args.push(`--timezone=${tz}`)
+    const tz = rawTz === 'system' ? getSystemTimezone() : rawTz
+    if (tz) args.push(`--timezone=${tz}`)
   }
 
-  const res = config.resolution === 'custom' ? config.customResolution : config.resolution
+  const res = config.resolution === 'custom' ? config.customResolution?.trim() : config.resolution
   if (res) args.push(`--window-size=${res}`)
 
   if (config.colorDepth) args.push(`--fingerprint-color-depth=${config.colorDepth}`)
   if (config.hardwareConcurrency) args.push(`--fingerprint-hardware-concurrency=${config.hardwareConcurrency}`)
-  if (config.deviceMemory) args.push(`--fingerprint-device-memory=${config.deviceMemory}`)
+  if (config.deviceMemory) args.push(`--fingerprint-memory=${config.deviceMemory}`)
 
   if (config.canvasNoise !== undefined) args.push(`--fingerprint-canvas-noise=${config.canvasNoise}`)
   if (config.webglVendor) args.push(`--fingerprint-webgl-vendor=${config.webglVendor}`)
@@ -112,6 +120,13 @@ export function serialize(config: FingerprintConfig): string[] {
   return [...args, ...(config.unknownArgs ?? [])]
 }
 
+const TRANSIENT_DERIVED_KEYS = new Set([
+  '--accept-lang',
+  '--accept-language',
+  '--fingerprint-screen-width',
+  '--fingerprint-screen-height',
+])
+
 // string[] → FingerprintConfig
 export function deserialize(args: string[]): FingerprintConfig {
   const config: FingerprintConfig = { unknownArgs: [] }
@@ -124,6 +139,10 @@ export function deserialize(args: string[]): FingerprintConfig {
     }
     const key = arg.slice(0, eqIdx)
     const val = arg.slice(eqIdx + 1)
+    if (TRANSIENT_DERIVED_KEYS.has(key.toLowerCase())) {
+      config.unknownArgs!.push(arg)
+      continue
+    }
     const field = KEY_MAP[key]
 
     if (!field) {
@@ -133,6 +152,8 @@ export function deserialize(args: string[]): FingerprintConfig {
 
     if (field === 'canvasNoise' || field === 'audioNoise' || field === 'doNotTrack') {
       (config as Record<string, unknown>)[field] = val === 'true'
+    } else if (field === 'platform') {
+      config.platform = val === 'mac' ? 'macos' : val
     } else if (field === 'resolution') {
       if (PRESET_RESOLUTIONS.includes(val)) {
         config.resolution = val
@@ -215,7 +236,7 @@ export const FINGERPRINT_PRESETS: FingerprintPreset[] = [
     description: '模拟 Mac 设计师用户，Apple GPU，Retina 分辨率',
     config: {
       brand: 'Chrome',
-      platform: 'mac',
+      platform: 'macos',
       lang: 'zh-CN',
       timezone: 'Asia/Shanghai',
       resolution: '2560,1440',
@@ -284,7 +305,7 @@ export const FINGERPRINT_PRESETS: FingerprintPreset[] = [
     description: '模拟日本 Mac 用户，Safari 风格，日语环境',
     config: {
       brand: 'Safari',
-      platform: 'mac',
+      platform: 'macos',
       lang: 'ja-JP',
       timezone: 'Asia/Tokyo',
       resolution: '1440,900',
@@ -330,7 +351,7 @@ export const FINGERPRINT_PRESETS: FingerprintPreset[] = [
     description: '模拟美国大学教育网 Mac 用户，英文环境 (en-US)',
     config: {
       brand: 'Chrome',
-      platform: 'mac',
+      platform: 'macos',
       lang: 'en-US',
       timezone: 'America/New_York',
       resolution: '1440,900',

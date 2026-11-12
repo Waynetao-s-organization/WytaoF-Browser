@@ -73,3 +73,30 @@ func TestRenameRejectsInvalidInput(t *testing.T) {
 		t.Fatalf("被拒绝的改名不应改动数据，实际 %q", stored.ProfileName)
 	}
 }
+
+func TestCopyPreservesFingerprintConfigWithoutOldSeed(t *testing.T) {
+	t.Parallel()
+
+	mgr := newRenameTestManager(t)
+	mgr.Profiles["profile-1"].FingerprintArgs = []string{
+		"--fingerprint=999999",
+		"--lang=en-US",
+		"--timezone=America/Los_Angeles",
+		"--webrtc-ip-handling-policy=disable_non_proxied_udp",
+	}
+	_ = mgr.ProfileDAO.Upsert(mgr.Profiles["profile-1"])
+
+	copied, err := mgr.Copy("profile-1", "样例副本")
+	if err != nil {
+		t.Fatalf("Copy 返回错误: %v", err)
+	}
+	for _, arg := range copied.FingerprintArgs {
+		if strings.HasPrefix(arg, "--fingerprint=") {
+			t.Fatalf("克隆实例不应沿用旧指纹种子: %v", copied.FingerprintArgs)
+		}
+	}
+	want := []string{"--lang=en-US", "--timezone=America/Los_Angeles", "--webrtc-ip-handling-policy=disable_non_proxied_udp"}
+	if strings.Join(copied.FingerprintArgs, "|") != strings.Join(want, "|") {
+		t.Fatalf("克隆实例应保留时区、语言等指纹设置:\n got=%v\nwant=%v", copied.FingerprintArgs, want)
+	}
+}

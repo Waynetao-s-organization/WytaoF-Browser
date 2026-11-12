@@ -17,19 +17,29 @@ export function ProfileNameCell({ profileId, profileName, onRename, className = 
   const [value, setValue] = useState(profileName)
   const [saving, setSaving] = useState(false)
   const cancelledRef = useRef(false)
+  const committingRef = useRef(false)
+
+  useEffect(() => {
+    if (!editing) {
+      setValue(profileName)
+    }
+  }, [profileName, editing])
 
   const startEditing = () => {
     cancelledRef.current = false
+    committingRef.current = false
     setValue(profileName)
     setEditing(true)
   }
 
   const commit = async () => {
+    if (committingRef.current) return
     const next = value.trim()
     if (!next || next === profileName) {
       setEditing(false)
       return
     }
+    committingRef.current = true
     setSaving(true)
     try {
       await onRename(profileId, next)
@@ -37,6 +47,7 @@ export function ProfileNameCell({ profileId, profileName, onRename, className = 
     } catch {
       // 改名失败时留在编辑状态，错误提示由上层弹出
     } finally {
+      committingRef.current = false
       setSaving(false)
     }
   }

@@ -112,6 +112,86 @@ func TestEnsureDefaultBookmarksDoesNotRewriteWhenNothingMissing(t *testing.T) {
 	}
 }
 
+func TestSyncDefaultBookmarksReordersDeletesAndDeduplicatesTrailingSlash(t *testing.T) {
+	t.Parallel()
+
+	userDataDir := t.TempDir()
+	profileDir := filepath.Join(userDataDir, "Default")
+	if err := os.MkdirAll(profileDir, 0o755); err != nil {
+		t.Fatalf("create profile dir: %v", err)
+	}
+
+	root := newEmptyBookmarkRoot("0")
+	root["checksum"] = "old-checksum-should-be-cleared"
+	roots := root["roots"].(map[string]interface{})
+	bar := roots["bookmark_bar"].(map[string]interface{})
+	bar["children"] = []interface{}{
+		map[string]interface{}{
+			"id":   "4",
+			"name": "Google",
+			"type": "url",
+			"url":  "https://www.google.com/",
+			"guid": bookmarkGUID("https://www.google.com/"),
+		},
+		map[string]interface{}{
+			"id":   "5",
+			"name": "IPPure",
+			"type": "url",
+			"url":  "https://ippure.com/",
+			"guid": bookmarkGUID("https://ippure.com/"),
+		},
+		map[string]interface{}{
+			"id":   "6",
+			"name": "Mygoogle",
+			"type": "url",
+			"url":  "https://myaccount.google.com/",
+			"guid": bookmarkGUID("https://myaccount.google.com"),
+		},
+		map[string]interface{}{
+			"id":   "7",
+			"name": "Mygoogle",
+			"type": "url",
+			"url":  "https://myaccount.google.com/",
+			"guid": "92cfc582-669b-477b-8007-98e4cd1b145c",
+		},
+		map[string]interface{}{
+			"id":   "8",
+			"name": "用户自己收藏的网页",
+			"type": "url",
+			"url":  "https://personal.example/page",
+			"guid": "11111111-2222-4333-8444-555555555555",
+		},
+	}
+	writeBookmarkRoot(t, profileDir, root)
+
+	err := SyncDefaultBookmarks(userDataDir, []config.BrowserBookmark{
+		{Name: "Mygoogle账号", URL: "https://myaccount.google.com"},
+		{Name: "Google首页", URL: "https://www.google.com/"},
+	}, nil)
+	if err != nil {
+		t.Fatalf("SyncDefaultBookmarks returned error: %v", err)
+	}
+
+	updated := readBookmarkRoot(t, profileDir)
+	if gotChecksum, _ := updated["checksum"].(string); gotChecksum != "" {
+		t.Fatalf("同步后应清空旧 checksum，实际为 %q", gotChecksum)
+	}
+	updatedBar := updated["roots"].(map[string]interface{})["bookmark_bar"].(map[string]interface{})
+	children := updatedBar["children"].([]interface{})
+	if len(children) != 3 {
+		t.Fatalf("期望书签栏为 3 项（2 项默认 + 1 项用户个人书签），实际 %d 项: %+v", len(children), children)
+	}
+	first := children[0].(map[string]interface{})
+	second := children[1].(map[string]interface{})
+	third := children[2].(map[string]interface{})
+	if first["name"] != "Mygoogle账号" || second["name"] != "Google首页" || third["url"] != "https://personal.example/page" {
+		t.Fatalf("书签栏顺序或内容不符合预期: %+v", children)
+	}
+	if countBookmarkURL(updated, "https://ippure.com/") != 0 {
+		t.Fatalf("已删除的默认书签 IPPure 应从书签栏移除")
+	}
+}
+
 func writeBookmarkRoot(t *testing.T, profileDir string, root map[string]interface{}) {
 	t.Helper()
 	data, err := json.MarshalIndent(root, "", "   ")

@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// Copy 复制实例配置（除指纹参数外全部复制，指纹使用默认值生成新种子）
+// Copy 复制实例配置（保留源实例的时区、语言、防泄露等指纹项，仅去掉旧指纹种子由新实例重新生成）
 func (m *Manager) Copy(profileId string, newName string) (*Profile, error) {
 	log := logger.New("Browser")
 	m.InitData()
@@ -30,12 +30,17 @@ func (m *Manager) Copy(profileId string, newName string) (*Profile, error) {
 		profileName = src.ProfileName + " (副本)"
 	}
 
+	copiedFingerprintArgs := cloneFingerprintArgsWithoutSeed(src.FingerprintArgs)
+	if len(copiedFingerprintArgs) == 0 {
+		copiedFingerprintArgs = cloneFingerprintArgsWithoutSeed(m.Config.Browser.DefaultFingerprintArgs)
+	}
+
 	profile := &Profile{
 		ProfileId:          newId,
 		ProfileName:        profileName,
 		UserDataDir:        newId,
 		CoreId:             normalizeProfileCoreID(src.CoreId),
-		FingerprintArgs:    append([]string{}, m.Config.Browser.DefaultFingerprintArgs...),
+		FingerprintArgs:    copiedFingerprintArgs,
 		ProxyId:            src.ProxyId,
 		ProxyConfig:        src.ProxyConfig,
 		ProxyBindSourceID:  src.ProxyBindSourceID,
@@ -57,10 +62,28 @@ func (m *Manager) Copy(profileId string, newName string) (*Profile, error) {
 	m.Profiles[newId] = profile
 	log.Info("实例复制成功", logger.F("src_id", profileId), logger.F("new_id", newId), logger.F("new_name", profileName))
 
-	if err := m.SaveProfiles(); err != nil {
+	if m.ProfileDAO != nil {
+		if err := m.ProfileDAO.Upsert(profile); err != nil {
+			delete(m.Profiles, newId)
+			return nil, err
+		}
+	} else if err := m.SaveProfiles(); err != nil {
+		delete(m.Profiles, newId)
 		return nil, err
 	}
 
 	m.ensureProfileLaunchCode(profile)
 	return profile, nil
+}
+
+func cloneFingerprintArgsWithoutSeed(args []string) []string {
+	out := make([]string, 0, len(args))
+	for _, raw := range args {
+		trimmed := strings.TrimSpace(raw)
+		if trimmed == "" || strings.HasPrefix(strings.ToLower(trimmed), "--fingerprint=") {
+			continue
+		}
+		out = append(out, trimmed)
+	}
+	return out
 }

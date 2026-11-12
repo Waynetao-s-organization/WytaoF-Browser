@@ -174,13 +174,7 @@ func (a *App) migrateToSQLite() {
 	if bookmarks, err := a.browserMgr.BookmarkDAO.List(); err == nil && len(bookmarks) == 0 {
 		src := a.config.Browser.DefaultBookmarks
 		if len(src) == 0 {
-			src = []config.BrowserBookmark{
-				{Name: "Google", URL: "https://www.google.com/"},
-				{Name: "Gmail", URL: "https://mail.google.com/"},
-				{Name: "Claude", URL: "https://claude.ai/"},
-				{Name: "ChatGPT", URL: "https://chatgpt.com/"},
-				{Name: "YouTube", URL: "https://www.youtube.com/"},
-			}
+			src = append([]config.BrowserBookmark{}, defaultBookmarkList...)
 		}
 		if err := a.browserMgr.BookmarkDAO.ReplaceAll(src); err != nil {
 			log.Error("书签迁移失败", logger.F("error", err))

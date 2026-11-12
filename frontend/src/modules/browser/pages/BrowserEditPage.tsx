@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { FolderOpen, Layers } from 'lucide-react'
+import { FolderOpen, Layers, RotateCcw } from 'lucide-react'
 import { Button, Card, ConfirmModal, FormItem, Input, Modal, Select, Textarea, toast } from '../../../shared/components'
 import type { BrowserCore, BrowserProfileInput, BrowserProxy, BrowserGroup, BrowserProfileTemplate } from '../types'
-import { createBrowserProfile, fetchAllTags, fetchBrowserCores, fetchBrowserProfileTemplates, fetchBrowserProfiles, fetchBrowserProxies, fetchBrowserSettings, fetchGroups, openUserDataDir, updateBrowserProfile } from '../api'
+import { createBrowserProfile, fetchAllTags, fetchBrowserCores, fetchBrowserProfileTemplates, fetchBrowserProfiles, fetchBrowserProxies, fetchBrowserSettings, fetchGroups, openUserDataDir, restartBrowserInstance, updateBrowserProfile } from '../api'
+import { EventsOn } from '../../../wailsjs/runtime/runtime'
 import { FingerprintPanel } from '../components/FingerprintPanel'
 import { TagInput } from '../components/TagInput'
 import { GroupSelector } from '../components/GroupSelector'
@@ -72,6 +73,8 @@ export function BrowserEditPage() {
   const [launchArgsText, setLaunchArgsText] = useState('')
   const [allTags, setAllTags] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
+  const [restartingAfterSave, setRestartingAfterSave] = useState(false)
+  const [isInstanceRunning, setIsInstanceRunning] = useState(false)
   const [proxyPickerOpen, setProxyPickerOpen] = useState(false)
   const [isDirty, setIsDirty] = useState(false)
   const [leaveConfirm, setLeaveConfirm] = useState(false)
@@ -103,6 +106,7 @@ export function BrowserEditPage() {
       const list = await fetchBrowserProfiles()
       const current = list.find(item => item.profileId === id)
       if (!current) return
+      setIsInstanceRunning(Boolean(current.running))
       const currentLaunchArgs = normalizeLaunchArgs(current.launchArgs)
       const normalizedCoreId = !current.coreId || current.coreId.toLowerCase() === 'default'
         ? ''
@@ -123,6 +127,25 @@ export function BrowserEditPage() {
       setLaunchArgsText(currentLaunchArgs.join('\n'))
     }
     loadData()
+  }, [id, isCreate])
+
+  useEffect(() => {
+    if (isCreate || !id) return
+    const syncRunning = async (payload: any) => {
+      const targetId = typeof payload === 'string' ? payload : payload?.profileId
+      if (targetId && targetId !== id) return
+      const list = await fetchBrowserProfiles()
+      const current = list.find(item => item.profileId === id)
+      if (current) setIsInstanceRunning(Boolean(current.running))
+    }
+    const offStarted = EventsOn('browser:instance:started', syncRunning)
+    const offStopped = EventsOn('browser:instance:stopped', syncRunning)
+    const offCrashed = EventsOn('browser:instance:crashed', syncRunning)
+    return () => {
+      offStarted?.()
+      offStopped?.()
+      offCrashed?.()
+    }
   }, [id, isCreate])
 
   const handleChange = (field: keyof BrowserProfileInput, value: string | string[]) => {
@@ -155,8 +178,12 @@ export function BrowserEditPage() {
     setLaunchArgsText(normalizeLaunchArgs(template.launchArgs || []).join('\n'))
   }
 
-  const handleSave = async () => {
-    setSaving(true)
+  const performSave = async (restartAfterSave: boolean) => {
+    if (restartAfterSave) {
+      setRestartingAfterSave(true)
+    } else {
+      setSaving(true)
+    }
     const resolvedProxyId = (formData.proxyId || '').trim()
     const resolvedProxyConfig = (formData.proxyConfig || '').trim()
     const payload: BrowserProfileInput = {
@@ -178,7 +205,14 @@ export function BrowserEditPage() {
         toast.success('配置已创建')
       } else if (id) {
         await updateBrowserProfile(id, payload)
-        toast.success('配置已更新')
+        if (restartAfterSave) {
+          await restartBrowserInstance(id)
+          toast.success('配置已更新并重启实例，新配置已生效')
+        } else if (isInstanceRunning) {
+          toast.warning('配置已保存；当前实例仍在运行，需重启实例后新配置才会生效')
+        } else {
+          toast.success('配置已更新')
+        }
       }
       setIsDirty(false)
       navigate('/browser/list')
@@ -186,8 +220,12 @@ export function BrowserEditPage() {
       setSaveError(typeof error === 'string' ? error : error?.message || '保存失败')
     } finally {
       setSaving(false)
+      setRestartingAfterSave(false)
     }
   }
+
+  const handleSave = () => performSave(false)
+  const handleSaveAndRestart = () => performSave(true)
 
   const handleBack = () => {
     if (isDirty) { setLeaveConfirm(true) } else { navigate('/browser/list') }
@@ -234,10 +272,26 @@ export function BrowserEditPage() {
           <p className="text-sm text-[var(--color-text-muted)] mt-1">完善指纹与启动参数</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="secondary" size="sm" onClick={handleBack}>返回列表</Button>
-          <Button size="sm" onClick={handleSave} loading={saving}>保存配置</Button>
+          <Button variant="secondary" size="sm" onClick={handleBack} disabled={saving || restartingAfterSave}>返回列表</Button>
+          {!isCreate && isInstanceRunning ? (
+            <>
+              <Button variant="secondary" size="sm" onClick={handleSave} loading={saving} disabled={restartingAfterSave}>仅保存</Button>
+              <Button size="sm" onClick={handleSaveAndRestart} loading={restartingAfterSave} disabled={saving}>
+                <RotateCcw className="w-4 h-4 mr-1.5" />
+                保存并重启生效
+              </Button>
+            </>
+          ) : (
+            <Button size="sm" onClick={handleSave} loading={saving}>保存配置</Button>
+          )}
         </div>
       </div>
+
+      {!isCreate && isInstanceRunning && (
+        <div className="rounded-xl border border-amber-300/60 bg-amber-500/10 px-4 py-3 text-sm text-[var(--color-text-primary)]">
+          当前实例正在运行中。修改时区、语言、代理或其它指纹设置后，点击右上角「保存并重启生效」即可关闭旧窗口并用新设置重新打开。
+        </div>
+      )}
 
       {isCreate && (
         <Card title="实例模板" subtitle="选择模板后会自动填充配置，保存前仍可继续修改">

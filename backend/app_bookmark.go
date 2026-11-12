@@ -29,22 +29,16 @@ var defaultBookmarkList = []BrowserBookmark{
 	{Name: "Ping0", URL: "https://ping0.cc/"},
 }
 
-var verificationBookmarkList = []BrowserBookmark{
-	{Name: "IPPure", URL: "https://ippure.com/"},
-	{Name: "IPLark", URL: "https://iplark.com/"},
-	{Name: "Ping0", URL: "https://ping0.cc/"},
-}
-
 // BookmarkList 获取默认书签列表（优先 SQLite，降级 config.yaml）
 func (a *App) BookmarkList() []BrowserBookmark {
-	if a.browserMgr.BookmarkDAO != nil {
+	if a.browserMgr != nil && a.browserMgr.BookmarkDAO != nil {
 		list, err := a.browserMgr.BookmarkDAO.List()
-		if err == nil && len(list) > 0 {
-			return mergeBookmarksByURL(list, verificationBookmarkList)
+		if err == nil {
+			return mergeBookmarksByURL(list, nil)
 		}
 	}
-	if len(a.config.Browser.DefaultBookmarks) > 0 {
-		return mergeBookmarksByURL(a.config.Browser.DefaultBookmarks, verificationBookmarkList)
+	if a.config != nil && len(a.config.Browser.DefaultBookmarks) > 0 {
+		return mergeBookmarksByURL(a.config.Browser.DefaultBookmarks, nil)
 	}
 	return mergeBookmarksByURL(defaultBookmarkList, nil)
 }
@@ -52,6 +46,8 @@ func (a *App) BookmarkList() []BrowserBookmark {
 // BookmarkSave 保存默认书签列表（优先 SQLite，降级 config.yaml）
 func (a *App) BookmarkSave(items []BrowserBookmark) error {
 	log := logger.New("Bookmark")
+	previous := a.BookmarkList()
+
 	valid := make([]BrowserBookmark, 0, len(items))
 	for _, item := range items {
 		name := strings.TrimSpace(item.Name)
@@ -66,9 +62,13 @@ func (a *App) BookmarkSave(items []BrowserBookmark) error {
 			})
 		}
 	}
-	valid = mergeBookmarksByURL(valid, verificationBookmarkList)
+	valid = mergeBookmarksByURL(valid, nil)
 
-	if a.browserMgr.BookmarkDAO != nil {
+	if a.browserMgr != nil {
+		a.recordRemovedBookmarks(previous, valid)
+	}
+
+	if a.browserMgr != nil && a.browserMgr.BookmarkDAO != nil {
 		if err := a.browserMgr.BookmarkDAO.ReplaceAll(valid); err != nil {
 			log.Error("书签保存到数据库失败", logger.F("error", err.Error()))
 			return err
@@ -87,6 +87,41 @@ func (a *App) BookmarkSave(items []BrowserBookmark) error {
 	return nil
 }
 
+func (a *App) recordRemovedBookmarks(previous []BrowserBookmark, current []BrowserBookmark) {
+	if a.browserMgr == nil {
+		return
+	}
+	currentKeys := make(map[string]struct{}, len(current))
+	for _, item := range current {
+		if key := browser.NormalizeBookmarkURLKey(item.URL); key != "" {
+			currentKeys[key] = struct{}{}
+		}
+	}
+	merged := make([]BrowserBookmark, 0, len(a.browserMgr.RemovedBookmarks)+len(previous))
+	seen := make(map[string]struct{}, len(a.browserMgr.RemovedBookmarks)+len(previous))
+	appendRemoved := func(item BrowserBookmark) {
+		key := browser.NormalizeBookmarkURLKey(item.URL)
+		if key == "" {
+			return
+		}
+		if _, stillActive := currentKeys[key]; stillActive {
+			return
+		}
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		merged = append(merged, item)
+	}
+	for _, item := range a.browserMgr.RemovedBookmarks {
+		appendRemoved(item)
+	}
+	for _, item := range previous {
+		appendRemoved(item)
+	}
+	a.browserMgr.RemovedBookmarks = merged
+}
+
 // BookmarkReset 恢复默认书签
 func (a *App) BookmarkReset() error {
 	return a.BookmarkSave(append([]BrowserBookmark{}, defaultBookmarkList...))
@@ -101,7 +136,10 @@ func mergeBookmarksByURL(items []BrowserBookmark, required []BrowserBookmark) []
 		if name == "" || url == "" {
 			return
 		}
-		key := strings.ToLower(url)
+		key := browser.NormalizeBookmarkURLKey(url)
+		if key == "" {
+			return
+		}
 		if _, ok := seen[key]; ok {
 			return
 		}
@@ -177,12 +215,15 @@ func (a *App) renameBookmarkScopeTag(oldName string, newName string) error {
 	return a.browserMgr.BookmarkDAO.ReplaceAll(list)
 }
 
-// BookmarkSyncToProfiles 将当前默认书签增量同步到已有未运行实例。
+// BookmarkSyncToProfiles 将当前默认书签同步到已有未运行实例。
 func (a *App) BookmarkSyncToProfiles() BookmarkSyncResult {
 	result := BookmarkSyncResult{}
 	log := logger.New("Bookmark")
+	if a.browserMgr == nil {
+		return result
+	}
 	bookmarks := a.BookmarkList()
-	if len(bookmarks) == 0 || a.browserMgr == nil {
+	if len(bookmarks) == 0 && len(a.browserMgr.RemovedBookmarks) == 0 {
 		return result
 	}
 
@@ -202,7 +243,7 @@ func (a *App) BookmarkSyncToProfiles() BookmarkSyncResult {
 		}
 
 		userDataDir := a.browserMgr.ResolveUserDataDir(profile)
-		if err := browser.EnsureDefaultBookmarks(userDataDir, bookmarks); err != nil {
+		if err := browser.SyncDefaultBookmarks(userDataDir, bookmarks, a.browserMgr.RemovedBookmarks); err != nil {
 			result.Failed++
 			name := profile.ProfileName
 			if name == "" {

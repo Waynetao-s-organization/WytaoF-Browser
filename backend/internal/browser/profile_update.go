@@ -51,6 +51,14 @@ func (m *Manager) Update(profileId string, input ProfileInput) (*Profile, error)
 	profile.UpdatedAt = time.Now().Format(time.RFC3339)
 
 	log.Info("浏览器配置更新", logger.F("profile_id", profileId), logger.F("profile_name", input.ProfileName))
+	if m.ProfileDAO != nil {
+		profile.CoreId = normalizeProfileCoreID(profile.CoreId)
+		if err := m.ProfileDAO.Upsert(profile); err != nil {
+			log.Error("实例配置更新持久化失败", logger.F("profile_id", profileId), logger.F("error", err))
+			return nil, err
+		}
+		return profile, nil
+	}
 	if err := m.SaveProfiles(); err != nil {
 		return nil, err
 	}

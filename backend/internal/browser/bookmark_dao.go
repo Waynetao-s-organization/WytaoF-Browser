@@ -62,16 +62,26 @@ func (d *SQLiteBookmarkDAO) ReplaceAll(bookmarks []config.BrowserBookmark) error
 	if _, err := tx.Exec(`DELETE FROM browser_bookmarks`); err != nil {
 		return fmt.Errorf("清空书签失败: %w", err)
 	}
-	for i, b := range bookmarks {
-		if b.Name == "" || b.URL == "" {
+	seenURL := make(map[string]struct{}, len(bookmarks))
+	order := 0
+	for _, b := range bookmarks {
+		name := strings.TrimSpace(b.Name)
+		rawURL := strings.TrimSpace(b.URL)
+		if name == "" || rawURL == "" {
 			continue
 		}
+		key := NormalizeBookmarkURLKey(rawURL)
+		if _, exists := seenURL[key]; exists {
+			continue
+		}
+		seenURL[key] = struct{}{}
 		if _, err := tx.Exec(
 			`INSERT INTO browser_bookmarks (name, url, open_on_start, open_tags, open_group_ids, sort_order) VALUES (?, ?, ?, ?, ?, ?)`,
-			b.Name, b.URL, boolToInt(b.OpenOnStart), encodeBookmarkScope(b.OpenTags), encodeBookmarkScope(b.OpenGroupIds), i,
+			name, rawURL, boolToInt(b.OpenOnStart), encodeBookmarkScope(b.OpenTags), encodeBookmarkScope(b.OpenGroupIds), order,
 		); err != nil {
 			return fmt.Errorf("插入书签失败: %w", err)
 		}
+		order++
 	}
 	return tx.Commit()
 }

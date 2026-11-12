@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react'
+﻿import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronDown, ChevronUp, RefreshCw, Wand2 } from 'lucide-react'
 import { ConfirmModal, FormItem, Input, Select, Textarea } from '../../../shared/components'
 import {
@@ -27,47 +27,71 @@ const BRAND_OPTIONS = [
 const PLATFORM_OPTIONS = [
   { value: '', label: '不设置' },
   { value: 'windows', label: 'Windows' },
-  { value: 'mac', label: 'macOS' },
+  { value: 'macos', label: 'macOS' },
   { value: 'linux', label: 'Linux' },
 ]
 
 const LANG_OPTIONS = [
   { value: '', label: '不设置' },
-  { value: 'zh-CN', label: '中文 (zh-CN)' },
+  { value: 'zh-CN', label: '简体中文 (zh-CN)' },
+  { value: 'zh-TW', label: '繁體中文 (zh-TW)' },
   { value: 'en-US', label: 'English (en-US)' },
   { value: 'en-GB', label: 'English (en-GB)' },
   { value: 'ja-JP', label: '日本語 (ja-JP)' },
   { value: 'ko-KR', label: '한국어 (ko-KR)' },
   { value: 'fr-FR', label: 'Français (fr-FR)' },
   { value: 'de-DE', label: 'Deutsch (de-DE)' },
+  { value: 'es-ES', label: 'Español (es-ES)' },
+  { value: 'pt-BR', label: 'Português (pt-BR)' },
+  { value: 'ru-RU', label: 'Русский (ru-RU)' },
+  { value: 'vi-VN', label: 'Tiếng Việt (vi-VN)' },
+  { value: 'th-TH', label: 'ไทย (th-TH)' },
+  { value: 'id-ID', label: 'Bahasa Indonesia (id-ID)' },
 ]
 
 const TIMEZONE_OPTIONS = [
   { value: '', label: '不设置' },
   { value: 'system', label: '跟随系统时区' },
+  { value: 'UTC', label: 'UTC (UTC+0)' },
   // 亚洲
-  { value: 'Asia/Shanghai', label: 'Asia/Shanghai (UTC+8)' },
-  { value: 'Asia/Tokyo', label: 'Asia/Tokyo (UTC+9)' },
-  { value: 'Asia/Seoul', label: 'Asia/Seoul (UTC+9)' },
-  { value: 'Asia/Singapore', label: 'Asia/Singapore (UTC+8)' },
-  { value: 'Asia/Hong_Kong', label: 'Asia/Hong_Kong (UTC+8)' },
-  { value: 'Asia/Dubai', label: 'Asia/Dubai (UTC+4)' },
-  { value: 'Asia/Kolkata', label: 'Asia/Kolkata (UTC+5:30)' },
+  { value: 'Asia/Shanghai', label: 'Asia/Shanghai (中国标准时间 UTC+8)' },
+  { value: 'Asia/Hong_Kong', label: 'Asia/Hong_Kong (香港 UTC+8)' },
+  { value: 'Asia/Taipei', label: 'Asia/Taipei (台湾 UTC+8)' },
+  { value: 'Asia/Singapore', label: 'Asia/Singapore (新加坡 UTC+8)' },
+  { value: 'Asia/Tokyo', label: 'Asia/Tokyo (东京 UTC+9)' },
+  { value: 'Asia/Seoul', label: 'Asia/Seoul (首尔 UTC+9)' },
+  { value: 'Asia/Bangkok', label: 'Asia/Bangkok (曼谷 UTC+7)' },
+  { value: 'Asia/Ho_Chi_Minh', label: 'Asia/Ho_Chi_Minh (胡志明 UTC+7)' },
+  { value: 'Asia/Jakarta', label: 'Asia/Jakarta (雅加达 UTC+7)' },
+  { value: 'Asia/Kuala_Lumpur', label: 'Asia/Kuala_Lumpur (吉隆坡 UTC+8)' },
+  { value: 'Asia/Manila', label: 'Asia/Manila (马尼拉 UTC+8)' },
+  { value: 'Asia/Kolkata', label: 'Asia/Kolkata (印度 UTC+5:30)' },
+  { value: 'Asia/Dubai', label: 'Asia/Dubai (迪拜 UTC+4)' },
   // 美洲
-  { value: 'America/New_York', label: 'America/New_York (UTC-5)' },
-  { value: 'America/Los_Angeles', label: 'America/Los_Angeles (UTC-8)' },
-  { value: 'America/Chicago', label: 'America/Chicago (UTC-6)' },
-  { value: 'America/Denver', label: 'America/Denver (UTC-7)' },
-  { value: 'America/Toronto', label: 'America/Toronto (UTC-5)' },
-  { value: 'America/Sao_Paulo', label: 'America/Sao_Paulo (UTC-3)' },
-  // EMEA
-  { value: 'Europe/London', label: 'Europe/London (UTC+0)' },
-  { value: 'Europe/Paris', label: 'Europe/Paris (UTC+1)' },
-  { value: 'Europe/Berlin', label: 'Europe/Berlin (UTC+1)' },
-  { value: 'Europe/Moscow', label: 'Europe/Moscow (UTC+3)' },
+  { value: 'America/Los_Angeles', label: 'America/Los_Angeles (美西洛杉矶)' },
+  { value: 'America/Denver', label: 'America/Denver (美国山地丹佛)' },
+  { value: 'America/Phoenix', label: 'America/Phoenix (美国亚利桑那)' },
+  { value: 'America/Chicago', label: 'America/Chicago (美中芝加哥)' },
+  { value: 'America/New_York', label: 'America/New_York (美东纽约)' },
+  { value: 'America/Vancouver', label: 'America/Vancouver (加拿大温哥华)' },
+  { value: 'America/Toronto', label: 'America/Toronto (加拿大多伦多)' },
+  { value: 'America/Mexico_City', label: 'America/Mexico_City (墨西哥城)' },
+  { value: 'America/Sao_Paulo', label: 'America/Sao_Paulo (巴西圣保罗)' },
+  // 欧洲
+  { value: 'Europe/London', label: 'Europe/London (英国伦敦)' },
+  { value: 'Europe/Paris', label: 'Europe/Paris (法国巴黎)' },
+  { value: 'Europe/Berlin', label: 'Europe/Berlin (德国柏林/法兰克福)' },
+  { value: 'Europe/Amsterdam', label: 'Europe/Amsterdam (荷兰阿姆斯特丹)' },
+  { value: 'Europe/Zurich', label: 'Europe/Zurich (瑞士苏黎世)' },
+  { value: 'Europe/Madrid', label: 'Europe/Madrid (西班牙马德里)' },
+  { value: 'Europe/Rome', label: 'Europe/Rome (意大利罗马)' },
+  { value: 'Europe/Warsaw', label: 'Europe/Warsaw (波兰华沙)' },
+  { value: 'Europe/Istanbul', label: 'Europe/Istanbul (土耳其伊斯坦布尔)' },
+  { value: 'Europe/Moscow', label: 'Europe/Moscow (莫斯科)' },
   // 大洋洲
-  { value: 'Australia/Sydney', label: 'Australia/Sydney (UTC+10)' },
-  { value: 'Pacific/Auckland', label: 'Pacific/Auckland (UTC+12)' },
+  { value: 'Australia/Sydney', label: 'Australia/Sydney (澳大利亚悉尼)' },
+  { value: 'Pacific/Auckland', label: 'Pacific/Auckland (新西兰奥克兰)' },
+  { value: 'custom', label: '自定义时区...' },
 ]
 
 const RESOLUTION_OPTIONS = [
@@ -170,20 +194,41 @@ const PRESET_OPTIONS = [
   ...FINGERPRINT_PRESETS.map(p => ({ value: p.id, label: p.name })),
 ]
 
+function parseFingerprintValue(args: string[]): FingerprintConfig {
+  const parsed = deserialize(args)
+  if (parsed.timezone && !TIMEZONE_OPTIONS.some(o => o.value === parsed.timezone && o.value !== 'custom')) {
+    parsed.customTimezone = parsed.timezone
+    parsed.timezone = 'custom'
+  }
+  return parsed
+}
+
 export function FingerprintPanel({ value, onChange }: FingerprintPanelProps) {
-  const [config, setConfig] = useState<FingerprintConfig>(() => deserialize(value))
+  const [config, setConfig] = useState<FingerprintConfig>(() => parseFingerprintValue(value))
   const [advancedOpen, setAdvancedOpen] = useState(false)
-  const [, setCustomRenderer] = useState('')
+  const [customRendererMode, setCustomRendererMode] = useState(false)
   const [confirmSeedOpen, setConfirmSeedOpen] = useState(false)
+  const lastEmittedRef = useRef<string>(value.join('\n'))
 
   useEffect(() => {
-    setConfig(deserialize(value))
+    const joined = value.join('\n')
+    if (joined === lastEmittedRef.current) {
+      return
+    }
+    lastEmittedRef.current = joined
+    setConfig(parseFingerprintValue(value))
+    setCustomRendererMode(false)
   }, [value.join('\n')])
 
-  const update = (patch: Partial<FingerprintConfig>) => {
-    const next = { ...config, ...patch }
+  const emitConfig = (next: FingerprintConfig) => {
     setConfig(next)
-    onChange(serialize(next))
+    const serialized = serialize(next)
+    lastEmittedRef.current = serialized.join('\n')
+    onChange(serialized)
+  }
+
+  const update = (patch: Partial<FingerprintConfig>) => {
+    emitConfig({ ...config, ...patch })
   }
 
   const handlePresetChange = (presetId: string) => {
@@ -196,24 +241,45 @@ export function FingerprintPanel({ value, onChange }: FingerprintPanelProps) {
       seed: randomFingerprintSeed(),
       unknownArgs: config.unknownArgs,
     }
-    setConfig(next)
-    onChange(serialize(next))
+    setCustomRendererMode(false)
+    emitConfig(next)
   }
 
   const handleAdvancedChange = (text: string) => {
     const args = text.split('\n').map(s => s.trim()).filter(Boolean)
     const parsed = deserialize(args)
-    setConfig(parsed)
-    onChange(serialize(parsed))
+    if (parsed.timezone && !TIMEZONE_OPTIONS.some(o => o.value === parsed.timezone && o.value !== 'custom')) {
+      parsed.customTimezone = parsed.timezone
+      parsed.timezone = 'custom'
+    }
+    emitConfig(parsed)
   }
+
+  const langOptions = useMemo(() => {
+    if (config.lang && !LANG_OPTIONS.some(o => o.value === config.lang)) {
+      return [...LANG_OPTIONS, { value: config.lang, label: `${config.lang} (当前设置)` }]
+    }
+    return LANG_OPTIONS
+  }, [config.lang])
+
+  const timezoneSelectValue = useMemo(() => {
+    if (!config.timezone) return ''
+    if (config.timezone === 'custom') return 'custom'
+    if (TIMEZONE_OPTIONS.some(o => o.value === config.timezone)) return config.timezone
+    return 'custom'
+  }, [config.timezone])
+
+  const customTimezoneValue = config.timezone === 'custom'
+    ? (config.customTimezone ?? '')
+    : (timezoneSelectValue === 'custom' ? (config.timezone ?? '') : '')
 
   const rendererOptions = config.webglVendor
     ? (WEBGL_RENDERER_OPTIONS[config.webglVendor] ?? [{ value: '', label: '不设置' }, { value: 'custom', label: '自定义...' }])
     : [{ value: '', label: '不设置' }]
 
-  const isCustomRenderer = config.webglRenderer
+  const isCustomRenderer = customRendererMode || (config.webglRenderer
     ? !rendererOptions.some(o => o.value === config.webglRenderer && o.value !== 'custom')
-    : false
+    : false)
 
   const advancedText = serialize(config).join('\n')
 
@@ -284,15 +350,35 @@ export function FingerprintPanel({ value, onChange }: FingerprintPanelProps) {
             <Select value={config.platform ?? ''} onChange={e => update({ platform: e.target.value || undefined })} options={PLATFORM_OPTIONS} />
           </FormItem>
           <FormItem label="语言">
-            <Select value={config.lang ?? ''} onChange={e => update({ lang: e.target.value || undefined })} options={LANG_OPTIONS} />
+            <Select value={config.lang ?? ''} onChange={e => update({ lang: e.target.value || undefined })} options={langOptions} />
           </FormItem>
           <FormItem label="时区">
-            <Select value={config.timezone ?? ''} onChange={e => update({ timezone: e.target.value || undefined })} options={TIMEZONE_OPTIONS.map(opt =>
-              opt.value === 'system'
-                ? { ...opt, label: `跟随系统时区 (当前: ${getSystemTimezone()})` }
-                : opt
-            )} />
+            <Select
+              value={timezoneSelectValue}
+              onChange={e => {
+                const val = e.target.value
+                if (val === 'custom') {
+                  update({ timezone: 'custom', customTimezone: customTimezoneValue })
+                } else {
+                  update({ timezone: val || undefined, customTimezone: undefined })
+                }
+              }}
+              options={TIMEZONE_OPTIONS.map(opt =>
+                opt.value === 'system'
+                  ? { ...opt, label: `跟随系统时区 (当前: ${getSystemTimezone()})` }
+                  : opt
+              )}
+            />
           </FormItem>
+          {timezoneSelectValue === 'custom' && (
+            <FormItem label="自定义时区（IANA 名称）">
+              <Input
+                value={customTimezoneValue}
+                onChange={e => update({ timezone: 'custom', customTimezone: e.target.value || undefined })}
+                placeholder="如 America/Phoenix 或 Europe/Amsterdam"
+              />
+            </FormItem>
+          )}
         </div>
       </div>
 
@@ -334,25 +420,42 @@ export function FingerprintPanel({ value, onChange }: FingerprintPanelProps) {
           <FormItem label="WebGL 供应商">
             <Select
               value={config.webglVendor ?? ''}
-              onChange={e => update({ webglVendor: e.target.value || undefined, webglRenderer: undefined })}
+              onChange={e => {
+                setCustomRendererMode(false)
+                update({ webglVendor: e.target.value || undefined, webglRenderer: undefined })
+              }}
               options={WEBGL_VENDOR_OPTIONS}
             />
           </FormItem>
           <FormItem label="WebGL 渲染器">
             {isCustomRenderer ? (
-              <Input
-                value={config.webglRenderer ?? ''}
-                onChange={e => update({ webglRenderer: e.target.value || undefined })}
-                placeholder="自定义渲染器名称"
-              />
+              <div className="flex gap-2">
+                <Input
+                  value={config.webglRenderer ?? ''}
+                  onChange={e => update({ webglRenderer: e.target.value || undefined })}
+                  placeholder="自定义渲染器名称"
+                  className="flex-1"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCustomRendererMode(false)
+                    update({ webglRenderer: undefined })
+                  }}
+                  className="px-2.5 text-xs rounded-lg border border-[var(--color-border-default)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-subtle)] shrink-0"
+                >
+                  切回列表
+                </button>
+              </div>
             ) : (
               <Select
                 value={config.webglRenderer ?? ''}
                 onChange={e => {
                   if (e.target.value === 'custom') {
-                    setCustomRenderer('')
+                    setCustomRendererMode(true)
                     update({ webglRenderer: undefined })
                   } else {
+                    setCustomRendererMode(false)
                     update({ webglRenderer: e.target.value || undefined })
                   }
                 }}

@@ -190,12 +190,13 @@ type Manager struct {
 	CodeProvider     CodeProvider
 
 	// DAO 层（注入后使用 SQLite 存储，未注入时降级到 config.yaml）
-	ProfileDAO  ProfileDAO
-	ProxyDAO    ProxyDAO
-	CoreDAO     CoreDAO
-	BookmarkDAO BookmarkDAO
-	GroupDAO    GroupDAO
-	TemplateDAO ProfileTemplateDAO
+	ProfileDAO       ProfileDAO
+	ProxyDAO         ProxyDAO
+	CoreDAO          CoreDAO
+	BookmarkDAO      BookmarkDAO
+	GroupDAO         GroupDAO
+	TemplateDAO      ProfileTemplateDAO
+	RemovedBookmarks []config.BrowserBookmark
 }
 
 // XrayBridge Xray 桥接进程

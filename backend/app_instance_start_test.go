@@ -540,6 +540,110 @@ func TestAppendLaunchTargetsPreservesSessionRestoreWhenEnabled(t *testing.T) {
 	}
 }
 
+func TestNormalizeFingerprintLaunchArgsAdaptsKernelSwitches(t *testing.T) {
+	t.Parallel()
+
+	got := normalizeFingerprintLaunchArgs([]string{
+		"--fingerprint-platform=mac",
+		"--lang=en-US",
+		"--timezone=America/Los_Angeles",
+		"--window-size=1440,900",
+		"--fingerprint-device-memory=8",
+		"--fingerprint-webgl-vendor=Apple",
+		"--fingerprint-webgl-renderer=Apple M2",
+	})
+
+	want := []string{
+		"--fingerprint-platform=macos",
+		"--lang=en-US",
+		"--timezone=America/Los_Angeles",
+		"--window-size=1440,900",
+		"--fingerprint-device-memory=8",
+		"--fingerprint-webgl-vendor=Apple",
+		"--fingerprint-webgl-renderer=Apple M2",
+		"--accept-lang=en-US,en",
+		"--fingerprint-screen-width=1440",
+		"--fingerprint-screen-height=900",
+		"--fingerprint-memory=8",
+		"--fingerprint-gpu-vendor=Apple",
+		"--fingerprint-gpu-renderer=Apple M2",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("normalizeFingerprintLaunchArgs mismatch:\n got=%v\nwant=%v", got, want)
+	}
+}
+
+func TestPrepareBrowserLaunchContextAppliesDefaultsOnFirstRunAndSyncsUpdatedLanguage(t *testing.T) {
+	t.Parallel()
+
+	appRoot := t.TempDir()
+	fakeChrome := writeFakeChromeExecutable(t, appRoot)
+
+	cfg := config.DefaultConfig()
+	cfg.Browser.UserDataRoot = "data"
+	cfg.Browser.DefaultLaunchArgs = []string{"--disable-sync", "--no-first-run"}
+	cfg.Browser.Cores = []config.BrowserCore{
+		{CoreId: "core-test", CoreName: "Test Core", CorePath: filepath.Dir(fakeChrome), IsDefault: true},
+	}
+
+	app := NewApp(appRoot)
+	app.config = cfg
+	app.browserMgr = browser.NewManager(cfg, appRoot)
+
+	profile := &BrowserProfile{
+		ProfileId:   "profile-edit-lang",
+		ProfileName: "样例实例",
+		UserDataDir: "profile-edit-lang",
+	}
+
+	// 首次启动：未设语言，且 LaunchArgs 为空时第一次启动也应拿到默认启动参数
+	input := newBrowserStartInput(profile.ProfileId, nil, nil, false, false, false, "", "")
+	launchArgs, _, _, userDataDir, err := app.prepareBrowserLaunchContext(input, profile)
+	if err != nil {
+		t.Fatalf("首次 prepareBrowserLaunchContext 失败: %v", err)
+	}
+	if !reflect.DeepEqual(launchArgs, []string{"--disable-sync", "--no-first-run"}) {
+		t.Fatalf("首次启动应当包含默认启动参数: got=%v", launchArgs)
+	}
+
+	// 模拟首次运行退出时浏览器把 zh-CN,zh 写进了 Default/Preferences
+	prefsPath := filepath.Join(userDataDir, "Default", "Preferences")
+	_ = os.WriteFile(prefsPath, []byte(`{"intl":{"selected_languages":"zh-CN,zh"},"profile":{"name":"样例实例"}}`), 0o644)
+
+	// 后续修改实例指纹：加上语言 en-US 和时区 America/New_York
+	profile.FingerprintArgs = []string{"--lang=en-US", "--timezone=America/New_York"}
+	_, _, _, _, err = app.prepareBrowserLaunchContext(input, profile)
+	if err != nil {
+		t.Fatalf("二次 prepareBrowserLaunchContext 失败: %v", err)
+	}
+
+	prefsRaw, err := os.ReadFile(prefsPath)
+	if err != nil {
+		t.Fatalf("读取 Preferences 失败: %v", err)
+	}
+	if !strings.Contains(string(prefsRaw), `"en-US,en"`) {
+		t.Fatalf("后续修改语言后应同步更新 Default/Preferences，实际内容=%s", string(prefsRaw))
+	}
+}
+
+func writeFakeChromeExecutable(t *testing.T, root string) string {
+	t.Helper()
+
+	dir := filepath.Join(root, "chrome", "Chrom-Test")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("创建测试内核目录失败: %v", err)
+	}
+	binName := "chrome"
+	if goruntime.GOOS == "windows" {
+		binName = "chrome.exe"
+	}
+	binPath := filepath.Join(dir, binName)
+	if err := os.WriteFile(binPath, []byte("fake"), 0o755); err != nil {
+		t.Fatalf("写入测试内核文件失败: %v", err)
+	}
+	return binPath
+}
+
 func mustListenLoopback(t *testing.T) net.Listener {
 	t.Helper()
 

@@ -48,46 +48,105 @@ func TestBookmarkSyncToProfilesAppliesCurrentDefaults(t *testing.T) {
 	}
 }
 
-func TestBookmarkListAlwaysIncludesVerificationBookmarks(t *testing.T) {
+func TestBookmarkSaveRespectsOrderAndDeletionIncludingIPCheckBookmarks(t *testing.T) {
 	t.Parallel()
 
 	appRoot := t.TempDir()
 	cfg := config.DefaultConfig()
-	cfg.Browser.DefaultBookmarks = []config.BrowserBookmark{
-		{Name: "用户默认书签", URL: "https://user.example/"},
-	}
-
 	app := NewApp(appRoot)
 	app.config = cfg
 	app.browserMgr = internalbrowser.NewManager(cfg, appRoot)
 
-	bookmarks := app.BookmarkList()
-	for _, url := range []string{"https://ippure.com/", "https://iplark.com/", "https://ping0.cc/"} {
-		if countBookmarkItemsByURL(bookmarks, url) != 1 {
-			t.Fatalf("expected verification bookmark %s exactly once, got %+v", url, bookmarks)
+	// 先恢复默认书签（含 Google、IPPure、IPLark、Ping0 等 8 项）
+	if err := app.BookmarkReset(); err != nil {
+		t.Fatalf("BookmarkReset returned error: %v", err)
+	}
+
+	// 用户删除了 IPPure、IPLark、YouTube 等，只留 3 项并调整了顺序
+	custom := []config.BrowserBookmark{
+		{Name: "Ping0", URL: "https://ping0.cc/"},
+		{Name: "自定义站点", URL: "https://custom.example/", OpenOnStart: true},
+		{Name: "Google", URL: "https://www.google.com/"},
+	}
+	if err := app.BookmarkSave(custom); err != nil {
+		t.Fatalf("BookmarkSave returned error: %v", err)
+	}
+
+	got := app.BookmarkList()
+	if len(got) != 3 {
+		t.Fatalf("期望保存后只剩 3 项，实际得到 %d 项: %+v", len(got), got)
+	}
+	wantOrder := []string{"https://ping0.cc/", "https://custom.example/", "https://www.google.com/"}
+	for i, wantURL := range wantOrder {
+		if got[i].URL != wantURL {
+			t.Fatalf("第 %d 项顺序不对: got=%s want=%s (all=%+v)", i, got[i].URL, wantURL, got)
+		}
+	}
+	for _, deletedURL := range []string{"https://ippure.com/", "https://iplark.com/", "https://www.youtube.com/"} {
+		if countBookmarkItemsByURL(got, deletedURL) != 0 {
+			t.Fatalf("已删除的书签 %s 不应再次出现: %+v", deletedURL, got)
 		}
 	}
 }
 
-func TestBookmarkSavePersistsVerificationBookmarks(t *testing.T) {
+func TestBookmarkSyncToProfilesUpdatesOrderAndRemovesDeletedDefaults(t *testing.T) {
 	t.Parallel()
 
 	appRoot := t.TempDir()
 	cfg := config.DefaultConfig()
+	cfg.Browser.UserDataRoot = "data"
 	app := NewApp(appRoot)
 	app.config = cfg
 	app.browserMgr = internalbrowser.NewManager(cfg, appRoot)
+	app.browserMgr.Profiles["profile-1"] = &internalbrowser.Profile{
+		ProfileId:   "profile-1",
+		ProfileName: "样例实例1",
+		UserDataDir: "profile-1",
+	}
 
-	if err := app.BookmarkSave([]config.BrowserBookmark{{Name: "用户默认书签", URL: "https://user.example/", OpenOnStart: true}}); err != nil {
-		t.Fatalf("BookmarkSave returned error: %v", err)
+	initial := []config.BrowserBookmark{
+		{Name: "站点A", URL: "https://a.example/"},
+		{Name: "站点B", URL: "https://b.example/"},
+		{Name: "站点C", URL: "https://c.example/"},
 	}
-	if item, ok := findBookmarkItemByURL(app.config.Browser.DefaultBookmarks, "https://user.example/"); !ok || !item.OpenOnStart {
-		t.Fatalf("expected open_on_start to be preserved, got %+v", app.config.Browser.DefaultBookmarks)
+	if err := app.BookmarkSave(initial); err != nil {
+		t.Fatalf("初次保存失败: %v", err)
 	}
-	for _, url := range []string{"https://ippure.com/", "https://iplark.com/", "https://ping0.cc/"} {
-		if countBookmarkItemsByURL(app.config.Browser.DefaultBookmarks, url) != 1 {
-			t.Fatalf("expected saved verification bookmark %s exactly once, got %+v", url, app.config.Browser.DefaultBookmarks)
-		}
+	if res := app.BookmarkSyncToProfiles(); res.Synced != 1 {
+		t.Fatalf("初次同步结果异常: %+v", res)
+	}
+
+	// 用户删除了 站点B，把 站点C 移到 站点A 前面，并把 站点A 改名
+	updated := []config.BrowserBookmark{
+		{Name: "站点C", URL: "https://c.example/"},
+		{Name: "站点A新名", URL: "https://a.example/"},
+	}
+	if err := app.BookmarkSave(updated); err != nil {
+		t.Fatalf("二次保存失败: %v", err)
+	}
+	if res := app.BookmarkSyncToProfiles(); res.Synced != 1 {
+		t.Fatalf("二次同步结果异常: %+v", res)
+	}
+
+	bookmarksPath := filepath.Join(appRoot, "data", "profile-1", "Default", "Bookmarks")
+	data, err := os.ReadFile(bookmarksPath)
+	if err != nil {
+		t.Fatalf("读取实例书签失败: %v", err)
+	}
+	var root map[string]interface{}
+	if err := json.Unmarshal(data, &root); err != nil {
+		t.Fatalf("解析实例书签失败: %v", err)
+	}
+	roots := root["roots"].(map[string]interface{})
+	bar := roots["bookmark_bar"].(map[string]interface{})
+	children := bar["children"].([]interface{})
+	if len(children) != 2 {
+		t.Fatalf("期望实例书签栏有 2 项，实际 %d 项: %s", len(children), string(data))
+	}
+	first := children[0].(map[string]interface{})
+	second := children[1].(map[string]interface{})
+	if first["url"] != "https://c.example/" || second["url"] != "https://a.example/" || second["name"] != "站点A新名" {
+		t.Fatalf("实例书签栏顺序或名称未更新: first=%+v second=%+v", first, second)
 	}
 }
 

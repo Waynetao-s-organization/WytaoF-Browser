@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Plus, Trash2, RotateCcw, GripVertical, RefreshCw, Filter } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Plus, Trash2, RotateCcw, GripVertical, RefreshCw, Filter, ArrowUp, ArrowDown } from 'lucide-react'
 import { Button, Card, ConfirmModal, Input, Modal, toast } from '../../../shared/components'
 import type { BrowserBookmark, BrowserGroupWithCount } from '../types'
 import { fetchAllTags, fetchBookmarks, fetchBrowserProfiles, fetchGroups, resetBookmarks, saveBookmarks, syncBookmarksToProfiles } from '../api'
@@ -13,6 +13,9 @@ interface ScopeDraft {
   tags: Set<string>
   groupIds: Set<string>
 }
+
+const getErrorMessage = (error: any, fallback: string) =>
+  typeof error === 'string' && error.trim() ? error : (error?.message || fallback)
 
 const chipClass = (active: boolean) =>
   `px-2.5 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer ${
@@ -28,6 +31,8 @@ export function BookmarkSettingsPage() {
   const [resetOpen, setResetOpen] = useState(false)
   const [syncOpen, setSyncOpen] = useState(false)
   const [dragIndex, setDragIndex] = useState<number | null>(null)
+  const [dragReadyIndex, setDragReadyIndex] = useState<number | null>(null)
+  const dragIndexRef = useRef<number | null>(null)
   const [allTags, setAllTags] = useState<string[]>([])
   const [groups, setGroups] = useState<BrowserGroupWithCount[]>([])
   const [profileGroupIds, setProfileGroupIds] = useState<string[]>([])
@@ -65,6 +70,18 @@ export function BookmarkSettingsPage() {
 
   const handleDelete = (index: number) => {
     setItems(prev => prev.filter((_, i) => i !== index))
+    setScopeDraft(prev => (prev && prev.index === index ? null : prev))
+  }
+
+  const handleMove = (index: number, delta: -1 | 1) => {
+    setItems(prev => {
+      const target = index + delta
+      if (target < 0 || target >= prev.length) return prev
+      const next = [...prev]
+      const [moved] = next.splice(index, 1)
+      next.splice(target, 0, moved)
+      return next
+    })
   }
 
   const handleOpenOnStartChange = (index: number, checked: boolean) => {
@@ -133,6 +150,8 @@ export function BookmarkSettingsPage() {
     setSaving(true)
     try {
       await saveBookmarks(items)
+      const fresh = await fetchBookmarks()
+      setItems(fresh)
       const result = await syncBookmarksToProfiles()
       const parts = ['书签已保存']
       if (result.synced > 0) parts.push(`已同步 ${result.synced} 个已有实例`)
@@ -145,17 +164,25 @@ export function BookmarkSettingsPage() {
         toast.success(message)
       }
     } catch (error: any) {
-      toast.error(error?.message || '保存失败')
+      toast.error(getErrorMessage(error, '保存失败'))
     } finally {
       setSaving(false)
     }
   }
 
   const handleReset = async () => {
-    await resetBookmarks()
-    const fresh = await fetchBookmarks()
-    setItems(fresh)
-    toast.success('已恢复默认书签')
+    try {
+      await resetBookmarks()
+      const fresh = await fetchBookmarks()
+      setItems(fresh)
+      const result = await syncBookmarksToProfiles()
+      const parts = ['已恢复默认书签']
+      if (result.synced > 0) parts.push(`已同步 ${result.synced} 个已有实例`)
+      if (result.skipped > 0) parts.push(`跳过运行中 ${result.skipped} 个`)
+      toast.success(parts.join('，'))
+    } catch (error: any) {
+      toast.error(getErrorMessage(error, '恢复默认书签失败'))
+    }
   }
 
   const handleSync = async () => {
@@ -173,26 +200,45 @@ export function BookmarkSettingsPage() {
       }
       setSyncOpen(false)
     } catch (error: any) {
-      toast.error(error?.message || '同步失败')
+      toast.error(getErrorMessage(error, '同步失败'))
     } finally {
       setSyncing(false)
     }
   }
 
   // 拖拽排序
-  const handleDragStart = (index: number) => setDragIndex(index)
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    if (dragReadyIndex !== index) {
+      e.preventDefault()
+      return
+    }
+    dragIndexRef.current = index
+    setDragIndex(index)
+    e.dataTransfer.effectAllowed = 'move'
+    try {
+      e.dataTransfer.setData('text/plain', String(index))
+    } catch {}
+  }
   const handleDragOver = (e: React.DragEvent, index: number) => {
     e.preventDefault()
-    if (dragIndex === null || dragIndex === index) return
+    e.dataTransfer.dropEffect = 'move'
+    const fromIndex = dragIndexRef.current
+    if (fromIndex === null || fromIndex === index) return
+    dragIndexRef.current = index
+    setDragIndex(index)
     setItems(prev => {
+      if (fromIndex < 0 || fromIndex >= prev.length || index < 0 || index >= prev.length) return prev
       const next = [...prev]
-      const [moved] = next.splice(dragIndex, 1)
+      const [moved] = next.splice(fromIndex, 1)
       next.splice(index, 0, moved)
       return next
     })
-    setDragIndex(index)
   }
-  const handleDragEnd = () => setDragIndex(null)
+  const handleDragEnd = () => {
+    dragIndexRef.current = null
+    setDragIndex(null)
+    setDragReadyIndex(null)
+  }
 
   const scopeBookmark = scopeDraft ? items[scopeDraft.index] : null
 
@@ -201,7 +247,7 @@ export function BookmarkSettingsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold text-[var(--color-text-primary)]">默认书签</h1>
-          <p className="text-sm text-[var(--color-text-muted)] mt-1">新建实例首次启动时自动写入书签栏，已有书签不受影响</p>
+          <p className="text-sm text-[var(--color-text-muted)] mt-1">保存后自动按当前顺序与列表同步到未运行实例的书签栏，实例里自己收藏的其它书签不受影响</p>
         </div>
         <div className="flex gap-2">
           <Button variant="secondary" size="sm" onClick={() => setSyncOpen(true)} loading={syncing}>
@@ -216,14 +262,15 @@ export function BookmarkSettingsPage() {
         </div>
       </div>
 
-      <Card title={`书签列表（${items.length} 项）`} subtitle="拖拽左侧图标可调整顺序；勾了「启动打开」后，可以点右边的范围按钮限定只对某些标签或分组的实例打开">
+      <Card title={`书签列表（${items.length} 项）`} subtitle="拖拽左侧手柄或点击右侧上下箭头可调整顺序；勾了「启动打开」后，可以点范围按钮限定只对某些标签或分组的实例打开">
         <div className="space-y-2">
           {items.map((item, index) => (
             <div
               key={index}
-              draggable
-              onDragStart={() => handleDragStart(index)}
+              draggable={dragReadyIndex === index || dragIndex === index}
+              onDragStart={e => handleDragStart(e, index)}
               onDragOver={e => handleDragOver(e, index)}
+              onDrop={e => e.preventDefault()}
               onDragEnd={handleDragEnd}
               className={`flex items-center gap-2 p-2.5 rounded-xl shadow-[var(--shadow-sm)] transition-all duration-150 ${
                 dragIndex === index
@@ -231,7 +278,15 @@ export function BookmarkSettingsPage() {
                   : 'bg-[var(--color-bg-muted)] hover:bg-[var(--color-bg-subtle)]'
               }`}
             >
-              <GripVertical className="w-4 h-4 text-[var(--color-text-muted)] cursor-grab shrink-0" />
+              <span
+                onMouseEnter={() => setDragReadyIndex(index)}
+                onMouseLeave={() => { if (dragIndex === null) setDragReadyIndex(null) }}
+                onMouseDown={() => setDragReadyIndex(index)}
+                title="按住拖拽调整顺序"
+                className="p-1 rounded text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] cursor-grab active:cursor-grabbing shrink-0"
+              >
+                <GripVertical className="w-4 h-4" />
+              </span>
               <Input
                 value={item.name}
                 onChange={e => handleChange(index, 'name', e.target.value)}
@@ -264,13 +319,34 @@ export function BookmarkSettingsPage() {
                   <span className="truncate">{describeScope(item)}</span>
                 </button>
               )}
-              <button
-                type="button"
-                onClick={() => handleDelete(index)}
-                className="p-1.5 rounded text-[var(--color-text-muted)] hover:text-red-500 hover:bg-red-50 transition-colors shrink-0"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-0.5 shrink-0">
+                <button
+                  type="button"
+                  disabled={index === 0}
+                  onClick={() => handleMove(index, -1)}
+                  title="上移"
+                  className="p-1.5 rounded text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-surface)] disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                >
+                  <ArrowUp className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  disabled={index === items.length - 1}
+                  onClick={() => handleMove(index, 1)}
+                  title="下移"
+                  className="p-1.5 rounded text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-surface)] disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                >
+                  <ArrowDown className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDelete(index)}
+                  title="删除"
+                  className="p-1.5 rounded text-[var(--color-text-muted)] hover:text-red-500 hover:bg-red-50 transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           ))}
 
@@ -380,7 +456,7 @@ export function BookmarkSettingsPage() {
         onClose={() => setSyncOpen(false)}
         onConfirm={handleSync}
         title="手动同步已有实例"
-        content="只会增量追加缺失的默认书签，不会删除、改名或移动用户已有书签。运行中的实例会跳过。"
+        content="将按当前默认书签的顺序、名称与增删结果同步更新已有实例的书签栏，实例里自己收藏的其它书签不受影响。运行中的实例会跳过。"
         confirmText="开始同步"
       />
     </div>

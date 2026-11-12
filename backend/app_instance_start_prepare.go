@@ -170,15 +170,15 @@ func (a *App) prepareBrowserStartPlan(input browserStartInput, profile *BrowserP
 func (a *App) prepareBrowserLaunchContext(input browserStartInput, profile *BrowserProfile) ([]string, []string, string, string, error) {
 	log := logger.New("Browser")
 
-	sanitizedProfileLaunchArgs, managedProfileArgs := sanitizeManagedLaunchArgs(profile.LaunchArgs)
-	sanitizedExtraLaunchArgs, managedExtraArgs := sanitizeManagedLaunchArgs(input.ExtraLaunchArgs)
-	logManagedLaunchArgOverrides(log, input.ProfileID, "profile.launchArgs", managedProfileArgs)
-	logManagedLaunchArgOverrides(log, input.ProfileID, "start.extraLaunchArgs", managedExtraArgs)
-
 	proxyChanged := a.browserMgr.ApplyDefaults(profile)
 	if proxyChanged {
 		_ = a.browserMgr.SaveProfiles()
 	}
+
+	sanitizedProfileLaunchArgs, managedProfileArgs := sanitizeManagedLaunchArgs(profile.LaunchArgs)
+	sanitizedExtraLaunchArgs, managedExtraArgs := sanitizeManagedLaunchArgs(input.ExtraLaunchArgs)
+	logManagedLaunchArgOverrides(log, input.ProfileID, "profile.launchArgs", managedProfileArgs)
+	logManagedLaunchArgOverrides(log, input.ProfileID, "start.extraLaunchArgs", managedExtraArgs)
 
 	chromeBinaryPath, err := a.browserMgr.ResolveChromeBinary(profile)
 	if err != nil {
@@ -205,7 +205,7 @@ func (a *App) prepareBrowserLaunchContext(input browserStartInput, profile *Brow
 		return nil, nil, "", "", startErr
 	}
 
-	if err := browser.EnsureDefaultBookmarks(userDataDir, a.BookmarkList()); err != nil {
+	if err := browser.SyncDefaultBookmarks(userDataDir, a.BookmarkList(), a.browserMgr.RemovedBookmarks); err != nil {
 		log.Error("默认书签写入失败", logger.F("error", err.Error()))
 	}
 
@@ -213,6 +213,11 @@ func (a *App) prepareBrowserLaunchContext(input browserStartInput, profile *Brow
 		if _, err := browser.EnsureProfileDisplayName(userDataDir, profile.ProfileName); err != nil {
 			log.Warn("账户名称同步失败，不影响启动", logger.F("profile_id", input.ProfileID), logger.F("error", err.Error()))
 		}
+	}
+
+	configuredLang := browser.ExtractConfiguredLanguage(profile.FingerprintArgs, sanitizedProfileLaunchArgs, sanitizedExtraLaunchArgs)
+	if _, err := browser.SyncProfileLanguagePreferences(userDataDir, configuredLang); err != nil {
+		log.Warn("实例语言配置同步失败，不影响启动", logger.F("profile_id", input.ProfileID), logger.F("error", err.Error()))
 	}
 
 	if !browserRestoreLastSession(a.config) {
@@ -264,8 +269,122 @@ func buildBrowserLaunchArgs(profile *BrowserProfile, userDataDir string, debugPo
 		args = append(args, fmt.Sprintf("--proxy-server=%s", effectiveProxy))
 	}
 
-	args = append(args, profile.FingerprintArgs...)
-	args = append(args, sanitizedProfileLaunchArgs...)
-	args = append(args, sanitizedExtraLaunchArgs...)
+	combinedCustomArgs := make([]string, 0, len(profile.FingerprintArgs)+len(sanitizedProfileLaunchArgs)+len(sanitizedExtraLaunchArgs))
+	combinedCustomArgs = append(combinedCustomArgs, profile.FingerprintArgs...)
+	combinedCustomArgs = append(combinedCustomArgs, sanitizedProfileLaunchArgs...)
+	combinedCustomArgs = append(combinedCustomArgs, sanitizedExtraLaunchArgs...)
+
+	args = append(args, normalizeFingerprintLaunchArgs(combinedCustomArgs)...)
 	return appendLaunchTargets(args, startURLs, defaultStartURLs, skipDefaultStartURLs, restoreLastSession)
+}
+
+// normalizeFingerprintLaunchArgs 兼容不同指纹内核的参数命名差异，并补齐语言/分辨率配套开关
+func normalizeFingerprintLaunchArgs(customArgs []string) []string {
+	if len(customArgs) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(customArgs)+6)
+
+	hasAcceptLang := false
+	hasScreenWidth := false
+	hasScreenHeight := false
+	hasMemory := false
+	hasGPUVendor := false
+	hasGPURenderer := false
+	lastLang := ""
+	windowWidth := ""
+	windowHeight := ""
+	deviceMemory := ""
+	webglVendor := ""
+	webglRenderer := ""
+
+	for _, raw := range customArgs {
+		arg := strings.TrimSpace(raw)
+		if arg == "" {
+			continue
+		}
+		lower := strings.ToLower(arg)
+		switch {
+		case lower == "--fingerprint-platform=mac":
+			arg = "--fingerprint-platform=macos"
+		case strings.HasPrefix(lower, "--accept-lang=") || strings.HasPrefix(lower, "--accept-language="):
+			hasAcceptLang = true
+		case strings.HasPrefix(lower, "--lang="):
+			if v := strings.TrimSpace(arg[len("--lang="):]); v != "" {
+				lastLang = v
+			}
+		case strings.HasPrefix(lower, "--fingerprint-screen-width="):
+			hasScreenWidth = true
+		case strings.HasPrefix(lower, "--fingerprint-screen-height="):
+			hasScreenHeight = true
+		case strings.HasPrefix(lower, "--window-size="):
+			val := strings.TrimSpace(arg[len("--window-size="):])
+			if w, h, ok := parseResolutionPair(val); ok {
+				windowWidth, windowHeight = w, h
+			}
+		case strings.HasPrefix(lower, "--fingerprint-memory="):
+			hasMemory = true
+		case strings.HasPrefix(lower, "--fingerprint-device-memory="):
+			if v := strings.TrimSpace(arg[len("--fingerprint-device-memory="):]); v != "" {
+				deviceMemory = v
+			}
+		case strings.HasPrefix(lower, "--fingerprint-gpu-vendor="):
+			hasGPUVendor = true
+		case strings.HasPrefix(lower, "--fingerprint-webgl-vendor="):
+			if v := strings.TrimSpace(arg[len("--fingerprint-webgl-vendor="):]); v != "" {
+				webglVendor = v
+			}
+		case strings.HasPrefix(lower, "--fingerprint-gpu-renderer="):
+			hasGPURenderer = true
+		case strings.HasPrefix(lower, "--fingerprint-webgl-renderer="):
+			if v := strings.TrimSpace(arg[len("--fingerprint-webgl-renderer="):]); v != "" {
+				webglRenderer = v
+			}
+		}
+		out = append(out, arg)
+	}
+
+	if !hasAcceptLang && lastLang != "" {
+		if acceptList := browser.BuildAcceptLanguageList(lastLang); acceptList != "" {
+			out = append(out, "--accept-lang="+acceptList)
+		}
+	}
+	if !hasScreenWidth && windowWidth != "" {
+		out = append(out, "--fingerprint-screen-width="+windowWidth)
+	}
+	if !hasScreenHeight && windowHeight != "" {
+		out = append(out, "--fingerprint-screen-height="+windowHeight)
+	}
+	if !hasMemory && deviceMemory != "" {
+		out = append(out, "--fingerprint-memory="+deviceMemory)
+	}
+	if !hasGPUVendor && webglVendor != "" {
+		out = append(out, "--fingerprint-gpu-vendor="+webglVendor)
+	}
+	if !hasGPURenderer && webglRenderer != "" {
+		out = append(out, "--fingerprint-gpu-renderer="+webglRenderer)
+	}
+	return out
+}
+
+func parseResolutionPair(raw string) (string, string, bool) {
+	sep := ","
+	if !strings.Contains(raw, ",") && strings.Contains(strings.ToLower(raw), "x") {
+		sep = "x"
+	}
+	parts := strings.Split(strings.ToLower(raw), sep)
+	if len(parts) != 2 {
+		return "", "", false
+	}
+	w := strings.TrimSpace(parts[0])
+	h := strings.TrimSpace(parts[1])
+	if w == "" || h == "" {
+		return "", "", false
+	}
+	for _, ch := range w + h {
+		if ch < '0' || ch > '9' {
+			return "", "", false
+		}
+	}
+	return w, h, true
 }
