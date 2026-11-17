@@ -147,6 +147,10 @@ func (a *App) prepareBrowserStartPlan(input browserStartInput, profile *BrowserP
 	launchProfile := *profile
 	launchProfile.FingerprintArgs = a.browserMgr.EffectiveFingerprintArgsLocked(profile)
 	launchProfile.CoreId = a.browserMgr.ResolveProfileCoreIDLocked(profile)
+	if fixed, changed := browser.EnsureRealCanvasForCrashingKernel(launchProfile.FingerprintArgs, chromeBinaryPath); changed {
+		launchProfile.FingerprintArgs = fixed
+		logger.New("Browser").Warn("该内核带种子篡改 Canvas 会让 Cloudflare 人机验证等页面崩溃，本次启动已自动改为真实 Canvas", logger.F("profile_id", profile.ProfileId), logger.F("core", chromeBinaryPath))
+	}
 	startPageURL := a.prepareStartPageURL(input, profile, userDataDir, effectiveProxy)
 	defaultStartURLs := a.browserDefaultStartURLs(profile)
 	if startPageURL != "" && !restoreLastSession {
