@@ -29,6 +29,19 @@ func (m *Manager) Update(profileId string, input ProfileInput) (*Profile, error)
 	profile.UserDataDir = input.UserDataDir
 	profile.CoreId = normalizeProfileCoreID(input.CoreId)
 	profile.FingerprintArgs = input.FingerprintArgs
+	if schemeId := strings.TrimSpace(input.FingerprintSchemeId); schemeId != "" {
+		profile.FingerprintSchemeId = schemeId
+	}
+	if scheme := m.resolveProfileSchemeLocked(profile); scheme != nil {
+		profile.FingerprintSchemeId = scheme.SchemeId
+		profile.FingerprintArgs = ApplySchemeToArgs(scheme, profile.ProfileId, profile.FingerprintArgs)
+		if coreId := strings.TrimSpace(scheme.Fixed.CoreId); coreId != "" {
+			if _, ok := m.GetCore(coreId); ok {
+				profile.CoreId = coreId
+			}
+		}
+	}
+	profile.FingerprintArgs = m.ensureUniqueSeedLocked(profile.FingerprintArgs, profile.ProfileId)
 	if resolvedProxy.HasSelectedProxy {
 		_ = BindProfileToProxy(profile, resolvedProxy.SelectedProxy, true)
 	} else if resolvedProxy.FallbackToDirect {

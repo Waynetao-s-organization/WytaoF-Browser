@@ -44,6 +44,7 @@ browser:
   default_launch_args:
     - --disable-sync
     - --no-first-run
+    - --disable-speech-api
   default_bookmarks: []
   cores:
     - core_id: core-Chrom-144

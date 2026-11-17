@@ -137,10 +137,13 @@ func (a *App) startupInitManagers(cfg *config.Config, db *database.DB) {
 	a.browserMgr.BookmarkDAO = browser.NewSQLiteBookmarkDAO(conn)
 	a.browserMgr.GroupDAO = browser.NewSQLiteGroupDAO(conn)
 	a.browserMgr.TemplateDAO = browser.NewSQLiteProfileTemplateDAO(conn)
+	a.browserMgr.SchemeDAO = browser.NewSQLiteFingerprintSchemeDAO(conn)
 
 	a.migrateToSQLite()
 
 	a.browserMgr.InitData()
+	a.browserMgr.EnsureBuiltinSchemes()
+	a.migrateLegacyFingerprintSchemes()
 	a.registerDetectedCores(false)
 	a.autoDetectCores()
 	a.loadProxies()

@@ -173,6 +173,25 @@ var migrations = []migration{
 			`ALTER TABLE browser_bookmarks ADD COLUMN open_group_ids TEXT NOT NULL DEFAULT '[]'`,
 		},
 	},
+	{
+		version: 10,
+		desc:    "添加指纹方案表与实例方案绑定字段",
+		stmts: []string{
+			`CREATE TABLE IF NOT EXISTS browser_fingerprint_schemes (
+				scheme_id   TEXT PRIMARY KEY,
+				scheme_name TEXT NOT NULL,
+				description TEXT NOT NULL DEFAULT '',
+				builtin     INTEGER NOT NULL DEFAULT 0,
+				is_default  INTEGER NOT NULL DEFAULT 0,
+				sort_order  INTEGER NOT NULL DEFAULT 0,
+				fixed_json  TEXT NOT NULL DEFAULT '{}',
+				device_json TEXT NOT NULL DEFAULT '{}',
+				created_at  TEXT NOT NULL,
+				updated_at  TEXT NOT NULL
+			)`,
+			`ALTER TABLE browser_profiles ADD COLUMN fingerprint_scheme_id TEXT NOT NULL DEFAULT ''`,
+		},
+	},
 	// ── 新版本在此追加，格式：
 	// {
 	//     version: 4,

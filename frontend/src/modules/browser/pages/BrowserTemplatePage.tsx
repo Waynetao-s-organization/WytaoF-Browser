@@ -16,7 +16,7 @@ function emptyTemplateInput(): BrowserProfileTemplateInput {
     profileName: '',
     userDataDir: '',
     coreId: '',
-    fingerprintArgs: [],
+    fingerprintArgs: ['--fingerprint-brand=Chrome', '--fingerprint-platform=windows'],
     proxyId: directProxyID,
     proxyConfig: '',
     launchArgs: [],

@@ -140,6 +140,10 @@ const LaunchApiDocsPage = lazyNamed(
   () => import("./modules/browser/pages/LaunchApiDocsPage"),
   "LaunchApiDocsPage",
 );
+const FingerprintSchemePage = lazyNamed(
+  () => import("./modules/browser/pages/FingerprintSchemePage"),
+  "FingerprintSchemePage",
+);
 const TagManagementPage = lazyNamed(
   () => import("./modules/browser/pages/TagManagementPage"),
   "TagManagementPage",
@@ -447,6 +451,7 @@ function App() {
                 element={<Navigate to="/system/docs" replace />}
               />
               <Route path="/browser/tags" element={<TagManagementPage />} />
+            <Route path="/browser/fingerprint-schemes" element={<FingerprintSchemePage />} />
               <Route
                 path="/system/tutorial"
                 element={<Navigate to="/system/docs" replace />}

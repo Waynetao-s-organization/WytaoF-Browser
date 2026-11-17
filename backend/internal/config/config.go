@@ -150,6 +150,7 @@ type BrowserConfig struct {
 	RestoreLastSession     bool                           `yaml:"restore_last_session"`
 	StartPageDisabled      bool                           `yaml:"start_page_disabled,omitempty"`
 	WindowTitleDisabled    bool                           `yaml:"window_title_disabled,omitempty"`
+	FingerprintSchemeMigrated bool                        `yaml:"fingerprint_scheme_migrated,omitempty"`
 	StartReadyTimeoutMs    int                            `yaml:"start_ready_timeout_ms,omitempty"`
 	StartStableWindowMs    int                            `yaml:"start_stable_window_ms,omitempty"`
 	DefaultBookmarks       []BrowserBookmark              `yaml:"default_bookmarks,omitempty"`

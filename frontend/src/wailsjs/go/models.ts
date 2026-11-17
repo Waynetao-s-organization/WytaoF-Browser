@@ -553,6 +553,192 @@ export namespace browser {
 	        this.message = source["message"];
 	    }
 	}
+	export class WeightedValue {
+	    value: string;
+	    weight: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new WeightedValue(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.value = source["value"];
+	        this.weight = source["weight"];
+	    }
+	}
+	export class FingerprintSchemeDevice {
+	    cores: WeightedValue[];
+	    memory: WeightedValue[];
+	    platformVersions: WeightedValue[];
+	    windowSizes: WeightedValue[];
+	
+	    static createFrom(source: any = {}) {
+	        return new FingerprintSchemeDevice(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.cores = this.convertValues(source["cores"], WeightedValue);
+	        this.memory = this.convertValues(source["memory"], WeightedValue);
+	        this.platformVersions = this.convertValues(source["platformVersions"], WeightedValue);
+	        this.windowSizes = this.convertValues(source["windowSizes"], WeightedValue);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class FingerprintSchemeFixed {
+	    platform: string;
+	    brand: string;
+	    lang: string;
+	    timezone: string;
+	    webrtcPolicy: string;
+	    canvasNoise: boolean;
+	    gpuSpoof: boolean;
+	    hideWebGPU: boolean;
+	    speechApi: string;
+	    coreId: string;
+	    maximized: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new FingerprintSchemeFixed(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.platform = source["platform"];
+	        this.brand = source["brand"];
+	        this.lang = source["lang"];
+	        this.timezone = source["timezone"];
+	        this.webrtcPolicy = source["webrtcPolicy"];
+	        this.canvasNoise = source["canvasNoise"];
+	        this.gpuSpoof = source["gpuSpoof"];
+	        this.hideWebGPU = source["hideWebGPU"];
+	        this.speechApi = source["speechApi"];
+	        this.coreId = source["coreId"];
+	        this.maximized = source["maximized"];
+	    }
+	}
+	export class FingerprintScheme {
+	    schemeId: string;
+	    schemeName: string;
+	    description: string;
+	    builtin: boolean;
+	    isDefault: boolean;
+	    sortOrder: number;
+	    fixed: FingerprintSchemeFixed;
+	    device: FingerprintSchemeDevice;
+	    createdAt: string;
+	    updatedAt: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new FingerprintScheme(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.schemeId = source["schemeId"];
+	        this.schemeName = source["schemeName"];
+	        this.description = source["description"];
+	        this.builtin = source["builtin"];
+	        this.isDefault = source["isDefault"];
+	        this.sortOrder = source["sortOrder"];
+	        this.fixed = this.convertValues(source["fixed"], FingerprintSchemeFixed);
+	        this.device = this.convertValues(source["device"], FingerprintSchemeDevice);
+	        this.createdAt = source["createdAt"];
+	        this.updatedAt = source["updatedAt"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class FingerprintSchemeApplyResult {
+	    total: number;
+	    updated: number;
+	    skipped: number;
+	    errors: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new FingerprintSchemeApplyResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.total = source["total"];
+	        this.updated = source["updated"];
+	        this.skipped = source["skipped"];
+	        this.errors = source["errors"];
+	    }
+	}
+	
+	
+	export class FingerprintSchemeInput {
+	    schemeName: string;
+	    description: string;
+	    fixed: FingerprintSchemeFixed;
+	    device: FingerprintSchemeDevice;
+	
+	    static createFrom(source: any = {}) {
+	        return new FingerprintSchemeInput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.schemeName = source["schemeName"];
+	        this.description = source["description"];
+	        this.fixed = this.convertValues(source["fixed"], FingerprintSchemeFixed);
+	        this.device = this.convertValues(source["device"], FingerprintSchemeDevice);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class Group {
 	    groupId: string;
 	    groupName: string;
@@ -621,6 +807,7 @@ export namespace browser {
 	    userDataDir: string;
 	    coreId: string;
 	    fingerprintArgs: string[];
+	    fingerprintSchemeId: string;
 	    proxyId: string;
 	    proxyConfig: string;
 	    proxyBindSourceId: string;
@@ -654,6 +841,7 @@ export namespace browser {
 	        this.userDataDir = source["userDataDir"];
 	        this.coreId = source["coreId"];
 	        this.fingerprintArgs = source["fingerprintArgs"];
+	        this.fingerprintSchemeId = source["fingerprintSchemeId"];
 	        this.proxyId = source["proxyId"];
 	        this.proxyConfig = source["proxyConfig"];
 	        this.proxyBindSourceId = source["proxyBindSourceId"];
@@ -682,6 +870,7 @@ export namespace browser {
 	    userDataDir: string;
 	    coreId: string;
 	    fingerprintArgs: string[];
+	    fingerprintSchemeId: string;
 	    proxyId: string;
 	    proxyConfig: string;
 	    launchArgs: string[];
@@ -699,6 +888,7 @@ export namespace browser {
 	        this.userDataDir = source["userDataDir"];
 	        this.coreId = source["coreId"];
 	        this.fingerprintArgs = source["fingerprintArgs"];
+	        this.fingerprintSchemeId = source["fingerprintSchemeId"];
 	        this.proxyId = source["proxyId"];
 	        this.proxyConfig = source["proxyConfig"];
 	        this.launchArgs = source["launchArgs"];

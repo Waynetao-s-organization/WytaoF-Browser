@@ -14,6 +14,7 @@ type Profile struct {
 	UserDataDir        string   `json:"userDataDir"`
 	CoreId             string   `json:"coreId"`
 	FingerprintArgs    []string `json:"fingerprintArgs"`
+	FingerprintSchemeId string  `json:"fingerprintSchemeId"`
 	ProxyId            string   `json:"proxyId"`
 	ProxyConfig        string   `json:"proxyConfig"`
 	ProxyBindSourceID  string   `json:"proxyBindSourceId"`
@@ -43,6 +44,7 @@ type ProfileInput struct {
 	UserDataDir     string   `json:"userDataDir"`
 	CoreId          string   `json:"coreId"`
 	FingerprintArgs []string `json:"fingerprintArgs"`
+	FingerprintSchemeId string `json:"fingerprintSchemeId"`
 	ProxyId         string   `json:"proxyId"`
 	ProxyConfig     string   `json:"proxyConfig"`
 	LaunchArgs      []string `json:"launchArgs"`
@@ -196,6 +198,8 @@ type Manager struct {
 	BookmarkDAO      BookmarkDAO
 	GroupDAO         GroupDAO
 	TemplateDAO      ProfileTemplateDAO
+	SchemeDAO        FingerprintSchemeDAO
+	schemes          map[string]*FingerprintScheme
 	RemovedBookmarks []config.BrowserBookmark
 }
 

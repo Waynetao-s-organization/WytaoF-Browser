@@ -4,6 +4,7 @@ export interface BrowserProfile {
   userDataDir: string
   coreId: string
   fingerprintArgs: string[]
+  fingerprintSchemeId?: string
   proxyId: string
   proxyConfig: string
   proxyBindSourceId?: string
@@ -32,6 +33,7 @@ export interface BrowserProfileInput {
   userDataDir: string
   coreId: string
   fingerprintArgs: string[]
+  fingerprintSchemeId?: string
   proxyId: string
   proxyConfig: string
   launchArgs: string[]
@@ -242,4 +244,57 @@ export interface BrowserGroupInput {
 
 export interface BrowserGroupWithCount extends BrowserGroup {
   instanceCount: number
+}
+
+export interface WeightedValue {
+  value: string
+  weight: number
+}
+
+export interface FingerprintSchemeFixed {
+  platform: string
+  brand: string
+  lang: string
+  timezone: string
+  webrtcPolicy: string
+  canvasNoise: boolean
+  gpuSpoof: boolean
+  hideWebGPU: boolean
+  speechApi: string
+  coreId: string
+  maximized: boolean
+}
+
+export interface FingerprintSchemeDevice {
+  cores: WeightedValue[]
+  memory: WeightedValue[]
+  platformVersions: WeightedValue[]
+  windowSizes: WeightedValue[]
+}
+
+export interface FingerprintScheme {
+  schemeId: string
+  schemeName: string
+  description: string
+  builtin: boolean
+  isDefault: boolean
+  sortOrder: number
+  fixed: FingerprintSchemeFixed
+  device: FingerprintSchemeDevice
+  createdAt: string
+  updatedAt: string
+}
+
+export interface FingerprintSchemeInput {
+  schemeName: string
+  description: string
+  fixed: FingerprintSchemeFixed
+  device: FingerprintSchemeDevice
+}
+
+export interface FingerprintSchemeApplyResult {
+  total: number
+  updated: number
+  skipped: number
+  errors: string[]
 }

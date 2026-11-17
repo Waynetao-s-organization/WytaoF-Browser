@@ -143,6 +143,10 @@ func (a *App) prepareBrowserStartPlan(input browserStartInput, profile *BrowserP
 	}
 
 	restoreLastSession := browserRestoreLastSession(a.config)
+	// 指纹方案在启动时强制生效：固定项以方案为准，设备项保留实例自己的
+	launchProfile := *profile
+	launchProfile.FingerprintArgs = a.browserMgr.EffectiveFingerprintArgsLocked(profile)
+	launchProfile.CoreId = a.browserMgr.ResolveProfileCoreIDLocked(profile)
 	startPageURL := a.prepareStartPageURL(input, profile, userDataDir, effectiveProxy)
 	defaultStartURLs := a.browserDefaultStartURLs(profile)
 	if startPageURL != "" && !restoreLastSession {
@@ -153,7 +157,7 @@ func (a *App) prepareBrowserStartPlan(input browserStartInput, profile *BrowserP
 		profile:               profile,
 		chromeBinaryPath:      chromeBinaryPath,
 		userDataDir:           userDataDir,
-		args:                  buildBrowserLaunchArgs(profile, userDataDir, assignedDebugPort, effectiveProxy, sanitizedProfileLaunchArgs, sanitizedExtraLaunchArgs, input.StartURLs, defaultStartURLs, input.SkipDefaultStartURLs, restoreLastSession),
+		args:                  buildBrowserLaunchArgs(&launchProfile, userDataDir, assignedDebugPort, effectiveProxy, sanitizedProfileLaunchArgs, sanitizedExtraLaunchArgs, input.StartURLs, defaultStartURLs, input.SkipDefaultStartURLs, restoreLastSession),
 		startPageURL:          startPageURL,
 		restoreLastSession:    restoreLastSession,
 		effectiveProxy:        effectiveProxy,
@@ -180,7 +184,9 @@ func (a *App) prepareBrowserLaunchContext(input browserStartInput, profile *Brow
 	logManagedLaunchArgOverrides(log, input.ProfileID, "profile.launchArgs", managedProfileArgs)
 	logManagedLaunchArgOverrides(log, input.ProfileID, "start.extraLaunchArgs", managedExtraArgs)
 
-	chromeBinaryPath, err := a.browserMgr.ResolveChromeBinary(profile)
+	coreProfile := *profile
+	coreProfile.CoreId = a.browserMgr.ResolveProfileCoreIDLocked(profile)
+	chromeBinaryPath, err := a.browserMgr.ResolveChromeBinary(&coreProfile)
 	if err != nil {
 		startErr := fmt.Errorf("实例启动失败：%w", err)
 		log.Error("内核路径解析失败",
@@ -215,7 +221,7 @@ func (a *App) prepareBrowserLaunchContext(input browserStartInput, profile *Brow
 		}
 	}
 
-	configuredLang := browser.ExtractConfiguredLanguage(profile.FingerprintArgs, sanitizedProfileLaunchArgs, sanitizedExtraLaunchArgs)
+	configuredLang := browser.ExtractConfiguredLanguage(a.browserMgr.EffectiveFingerprintArgsLocked(profile), sanitizedProfileLaunchArgs, sanitizedExtraLaunchArgs)
 	if _, err := browser.SyncProfileLanguagePreferences(userDataDir, configuredLang); err != nil {
 		log.Warn("实例语言配置同步失败，不影响启动", logger.F("profile_id", input.ProfileID), logger.F("error", err.Error()))
 	}
@@ -278,25 +284,41 @@ func buildBrowserLaunchArgs(profile *BrowserProfile, userDataDir string, debugPo
 	return appendLaunchTargets(args, startURLs, defaultStartURLs, skipDefaultStartURLs, restoreLastSession)
 }
 
-// normalizeFingerprintLaunchArgs 兼容不同指纹内核的参数命名差异，并补齐语言/分辨率配套开关
+func normalizeSupportedFingerprintBrand(raw string) string {
+	val := strings.TrimSpace(raw)
+	switch strings.ToLower(val) {
+	case "chrome":
+		return "Chrome"
+	case "edge":
+		return "Edge"
+	case "opera":
+		return "Opera"
+	case "vivaldi":
+		return "Vivaldi"
+	default:
+		return "Chrome"
+	}
+}
+
+// normalizeFingerprintLaunchArgs 兼容不同指纹内核的参数命名差异，并补齐品牌、语言、分辨率缩放比与默认语音屏蔽开关
 func normalizeFingerprintLaunchArgs(customArgs []string) []string {
 	if len(customArgs) == 0 {
-		return nil
+		return []string{"--fingerprint-brand=Chrome", "--disable-speech-api"}
 	}
 	out := make([]string, 0, len(customArgs)+6)
 
+	hasBrand := false
 	hasAcceptLang := false
 	hasScreenWidth := false
 	hasScreenHeight := false
+	hasScaleFactor := false
 	hasMemory := false
-	hasGPUVendor := false
-	hasGPURenderer := false
+	hasDisableSpeech := false
+	explicitEnableSpeech := false
 	lastLang := ""
 	windowWidth := ""
 	windowHeight := ""
 	deviceMemory := ""
-	webglVendor := ""
-	webglRenderer := ""
 
 	for _, raw := range customArgs {
 		arg := strings.TrimSpace(raw)
@@ -305,6 +327,18 @@ func normalizeFingerprintLaunchArgs(customArgs []string) []string {
 		}
 		lower := strings.ToLower(arg)
 		switch {
+		case lower == "--enable-speech-api":
+			explicitEnableSpeech = true
+			continue
+		case lower == "--disable-speech-api":
+			if hasDisableSpeech {
+				continue
+			}
+			hasDisableSpeech = true
+		case strings.HasPrefix(lower, "--fingerprint-brand="):
+			hasBrand = true
+			rawBrand := arg[len("--fingerprint-brand="):]
+			arg = "--fingerprint-brand=" + normalizeSupportedFingerprintBrand(rawBrand)
 		case lower == "--fingerprint-platform=mac":
 			arg = "--fingerprint-platform=macos"
 		case strings.HasPrefix(lower, "--accept-lang=") || strings.HasPrefix(lower, "--accept-language="):
@@ -317,6 +351,8 @@ func normalizeFingerprintLaunchArgs(customArgs []string) []string {
 			hasScreenWidth = true
 		case strings.HasPrefix(lower, "--fingerprint-screen-height="):
 			hasScreenHeight = true
+		case strings.HasPrefix(lower, "--fingerprint-device-scale-factor="):
+			hasScaleFactor = true
 		case strings.HasPrefix(lower, "--window-size="):
 			val := strings.TrimSpace(arg[len("--window-size="):])
 			if w, h, ok := parseResolutionPair(val); ok {
@@ -328,22 +364,24 @@ func normalizeFingerprintLaunchArgs(customArgs []string) []string {
 			if v := strings.TrimSpace(arg[len("--fingerprint-device-memory="):]); v != "" {
 				deviceMemory = v
 			}
-		case strings.HasPrefix(lower, "--fingerprint-gpu-vendor="):
-			hasGPUVendor = true
-		case strings.HasPrefix(lower, "--fingerprint-webgl-vendor="):
-			if v := strings.TrimSpace(arg[len("--fingerprint-webgl-vendor="):]); v != "" {
-				webglVendor = v
-			}
-		case strings.HasPrefix(lower, "--fingerprint-gpu-renderer="):
-			hasGPURenderer = true
-		case strings.HasPrefix(lower, "--fingerprint-webgl-renderer="):
-			if v := strings.TrimSpace(arg[len("--fingerprint-webgl-renderer="):]); v != "" {
-				webglRenderer = v
-			}
 		}
 		out = append(out, arg)
 	}
 
+	if explicitEnableSpeech && hasDisableSpeech {
+		filtered := make([]string, 0, len(out))
+		for _, item := range out {
+			if !strings.EqualFold(item, "--disable-speech-api") {
+				filtered = append(filtered, item)
+			}
+		}
+		out = filtered
+		hasDisableSpeech = false
+	}
+
+	if !hasBrand {
+		out = append(out, "--fingerprint-brand=Chrome")
+	}
 	if !hasAcceptLang && lastLang != "" {
 		if acceptList := browser.BuildAcceptLanguageList(lastLang); acceptList != "" {
 			out = append(out, "--accept-lang="+acceptList)
@@ -351,18 +389,20 @@ func normalizeFingerprintLaunchArgs(customArgs []string) []string {
 	}
 	if !hasScreenWidth && windowWidth != "" {
 		out = append(out, "--fingerprint-screen-width="+windowWidth)
+		hasScreenWidth = true
 	}
 	if !hasScreenHeight && windowHeight != "" {
 		out = append(out, "--fingerprint-screen-height="+windowHeight)
+		hasScreenHeight = true
+	}
+	if !hasScaleFactor && (hasScreenWidth || hasScreenHeight) {
+		out = append(out, "--fingerprint-device-scale-factor=1")
 	}
 	if !hasMemory && deviceMemory != "" {
 		out = append(out, "--fingerprint-memory="+deviceMemory)
 	}
-	if !hasGPUVendor && webglVendor != "" {
-		out = append(out, "--fingerprint-gpu-vendor="+webglVendor)
-	}
-	if !hasGPURenderer && webglRenderer != "" {
-		out = append(out, "--fingerprint-gpu-renderer="+webglRenderer)
+	if !explicitEnableSpeech && !hasDisableSpeech {
+		out = append(out, "--disable-speech-api")
 	}
 	return out
 }

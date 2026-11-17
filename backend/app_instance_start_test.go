@@ -549,8 +549,6 @@ func TestNormalizeFingerprintLaunchArgsAdaptsKernelSwitches(t *testing.T) {
 		"--timezone=America/Los_Angeles",
 		"--window-size=1440,900",
 		"--fingerprint-device-memory=8",
-		"--fingerprint-webgl-vendor=Apple",
-		"--fingerprint-webgl-renderer=Apple M2",
 	})
 
 	want := []string{
@@ -559,17 +557,39 @@ func TestNormalizeFingerprintLaunchArgsAdaptsKernelSwitches(t *testing.T) {
 		"--timezone=America/Los_Angeles",
 		"--window-size=1440,900",
 		"--fingerprint-device-memory=8",
-		"--fingerprint-webgl-vendor=Apple",
-		"--fingerprint-webgl-renderer=Apple M2",
+		"--fingerprint-brand=Chrome",
 		"--accept-lang=en-US,en",
 		"--fingerprint-screen-width=1440",
 		"--fingerprint-screen-height=900",
+		"--fingerprint-device-scale-factor=1",
 		"--fingerprint-memory=8",
-		"--fingerprint-gpu-vendor=Apple",
-		"--fingerprint-gpu-renderer=Apple M2",
+		"--disable-speech-api",
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("normalizeFingerprintLaunchArgs mismatch:\n got=%v\nwant=%v", got, want)
+	}
+}
+
+func TestNormalizeFingerprintLaunchArgsSanitizesUnsupportedBrandAndHonorsSpeechOptIn(t *testing.T) {
+	t.Parallel()
+
+	got := normalizeFingerprintLaunchArgs([]string{
+		"--fingerprint-brand=Safari",
+		"--window-size=2560,1440",
+		"--fingerprint-device-scale-factor=2",
+		"--disable-speech-api",
+		"--enable-speech-api",
+	})
+
+	want := []string{
+		"--fingerprint-brand=Chrome",
+		"--window-size=2560,1440",
+		"--fingerprint-device-scale-factor=2",
+		"--fingerprint-screen-width=2560",
+		"--fingerprint-screen-height=1440",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("normalizeFingerprintLaunchArgs brand/speech mismatch:\n got=%v\nwant=%v", got, want)
 	}
 }
 

@@ -95,6 +95,20 @@ export function BrowserCoreValidate(arg1:string):Promise<browser.CoreValidateRes
 
 export function BrowserExportCookies(arg1:string):Promise<string>;
 
+export function BrowserFingerprintSchemeApply(arg1:string,arg2:Array<string>,arg3:boolean):Promise<browser.FingerprintSchemeApplyResult>;
+
+export function BrowserFingerprintSchemeCreate(arg1:browser.FingerprintSchemeInput):Promise<browser.FingerprintScheme>;
+
+export function BrowserFingerprintSchemeDelete(arg1:string):Promise<void>;
+
+export function BrowserFingerprintSchemeGenerateArgs(arg1:string):Promise<Array<string>>;
+
+export function BrowserFingerprintSchemeList():Promise<Array<browser.FingerprintScheme>>;
+
+export function BrowserFingerprintSchemeSetDefault(arg1:string):Promise<void>;
+
+export function BrowserFingerprintSchemeUpdate(arg1:string,arg2:browser.FingerprintSchemeInput):Promise<browser.FingerprintScheme>;
+
 export function BrowserGetAllTags():Promise<Array<string>>;
 
 export function BrowserGetCookies(arg1:string):Promise<Array<backend.CookieInfo>>;

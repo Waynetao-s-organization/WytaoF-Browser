@@ -21,6 +21,44 @@ type BrowserProfileTemplate = browser.ProfileTemplate
 type BrowserProfileTemplateInput = browser.ProfileTemplateInput
 type BrowserProfileBatchCreateInput = browser.ProfileBatchCreateInput
 type BrowserProfileBatchCreateResult = browser.ProfileBatchCreateResult
+type BrowserFingerprintScheme = browser.FingerprintScheme
+type BrowserFingerprintSchemeInput = browser.FingerprintSchemeInput
+type BrowserFingerprintSchemeApplyResult = browser.FingerprintSchemeApplyResult
+
+// BrowserFingerprintSchemeList 指纹方案列表（默认方案排最前）
+func (a *App) BrowserFingerprintSchemeList() []BrowserFingerprintScheme {
+	return a.browserMgr.ListFingerprintSchemes()
+}
+
+// BrowserFingerprintSchemeCreate 新建指纹方案
+func (a *App) BrowserFingerprintSchemeCreate(input BrowserFingerprintSchemeInput) (*BrowserFingerprintScheme, error) {
+	return a.browserMgr.CreateFingerprintScheme(input)
+}
+
+// BrowserFingerprintSchemeUpdate 修改指纹方案
+func (a *App) BrowserFingerprintSchemeUpdate(schemeId string, input BrowserFingerprintSchemeInput) (*BrowserFingerprintScheme, error) {
+	return a.browserMgr.UpdateFingerprintScheme(schemeId, input)
+}
+
+// BrowserFingerprintSchemeDelete 删除指纹方案（绑定它的实例改回默认方案）
+func (a *App) BrowserFingerprintSchemeDelete(schemeId string) error {
+	return a.browserMgr.DeleteFingerprintScheme(schemeId)
+}
+
+// BrowserFingerprintSchemeSetDefault 设为默认方案
+func (a *App) BrowserFingerprintSchemeSetDefault(schemeId string) error {
+	return a.browserMgr.SetDefaultFingerprintScheme(schemeId)
+}
+
+// BrowserFingerprintSchemeGenerateArgs 按方案生成一套“固定项 + 随机设备”的指纹参数
+func (a *App) BrowserFingerprintSchemeGenerateArgs(schemeId string) ([]string, error) {
+	return a.browserMgr.GenerateFingerprintArgsForScheme(schemeId)
+}
+
+// BrowserFingerprintSchemeApply 把方案套到实例（profileIds 为空 = 全部；rerollDevice=true 时整套设备重新随机）
+func (a *App) BrowserFingerprintSchemeApply(schemeId string, profileIds []string, rerollDevice bool) (BrowserFingerprintSchemeApplyResult, error) {
+	return a.browserMgr.ApplyFingerprintSchemeToProfiles(schemeId, profileIds, rerollDevice)
+}
 
 // BrowserProfileList 获取所有实例列表
 func (a *App) BrowserProfileList() []BrowserProfile { return a.browserMgr.List() }

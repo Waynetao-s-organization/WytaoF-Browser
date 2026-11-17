@@ -2,15 +2,16 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { FolderOpen, Layers, RotateCcw } from 'lucide-react'
 import { Button, Card, ConfirmModal, FormItem, Input, Modal, Select, Textarea, toast } from '../../../shared/components'
-import type { BrowserCore, BrowserProfileInput, BrowserProxy, BrowserGroup, BrowserProfileTemplate } from '../types'
-import { createBrowserProfile, fetchAllTags, fetchBrowserCores, fetchBrowserProfileTemplates, fetchBrowserProfiles, fetchBrowserProxies, fetchBrowserSettings, fetchGroups, openUserDataDir, restartBrowserInstance, updateBrowserProfile } from '../api'
+import type { BrowserCore, BrowserProfileInput, BrowserProxy, BrowserGroup, BrowserProfileTemplate, FingerprintScheme } from '../types'
+import { FINGERPRINT_SCHEME_NONE, createBrowserProfile, fetchAllTags, fetchBrowserCores, fetchBrowserProfileTemplates, fetchBrowserProfiles, fetchBrowserProxies, fetchBrowserSettings, fetchFingerprintSchemes, fetchGroups, generateFingerprintSchemeArgs, openUserDataDir, restartBrowserInstance, updateBrowserProfile } from '../api'
 import { EventsOn } from '../../../wailsjs/runtime/runtime'
 import { FingerprintPanel } from '../components/FingerprintPanel'
 import { TagInput } from '../components/TagInput'
 import { GroupSelector } from '../components/GroupSelector'
 import { ProxyPickerModal } from '../components/ProxyPickerModal'
 
-const fallbackLowLaunchArgs = ['--disable-sync', '--no-first-run']
+const fallbackLowLaunchArgs = ['--disable-sync', '--no-first-run', '--disable-speech-api']
+const fallbackDefaultFingerprintArgs = ['--fingerprint-brand=Chrome', '--fingerprint-platform=windows']
 const directProxyID = '__direct__'
 
 function normalizeLaunchArgs(args: string[]): string[] {
@@ -20,6 +21,11 @@ function normalizeLaunchArgs(args: string[]): string[] {
 function resolveDefaultLaunchArgs(args: string[]): string[] {
   const normalized = normalizeLaunchArgs(args)
   return normalized.length > 0 ? normalized : fallbackLowLaunchArgs
+}
+
+function resolveDefaultFingerprintArgs(args: string[]): string[] {
+  const normalized = normalizeLaunchArgs(args)
+  return normalized.length > 0 ? normalized : fallbackDefaultFingerprintArgs
 }
 
 function resolvePoolProxySelection(
@@ -79,17 +85,42 @@ export function BrowserEditPage() {
   const [isDirty, setIsDirty] = useState(false)
   const [leaveConfirm, setLeaveConfirm] = useState(false)
   const [saveError, setSaveError] = useState('')
+  const [schemes, setSchemes] = useState<FingerprintScheme[]>([])
+  const [schemeId, setSchemeId] = useState<string>('')
+
+  const rerollDevice = async (targetSchemeId: string) => {
+    if (!targetSchemeId || targetSchemeId === FINGERPRINT_SCHEME_NONE) return
+    try {
+      const args = await generateFingerprintSchemeArgs(targetSchemeId)
+      if (args.length > 0) {
+        setIsDirty(true)
+        setFormData(prev => ({ ...prev, fingerprintArgs: args, fingerprintSchemeId: targetSchemeId }))
+      }
+    } catch (error: any) {
+      toast.error(typeof error === 'string' ? error : error?.message || '生成设备指纹失败')
+    }
+  }
+
+  const handleSchemeChange = (next: string) => {
+    setSchemeId(next)
+    setIsDirty(true)
+    setFormData(prev => ({ ...prev, fingerprintSchemeId: next }))
+    if (next !== FINGERPRINT_SCHEME_NONE) rerollDevice(next)
+  }
 
   useEffect(() => {
     const loadData = async () => {
-      const [coreList, proxyList, tagList, groupList, settings, templateList] = await Promise.all([
+      const [coreList, proxyList, tagList, groupList, settings, templateList, schemeList] = await Promise.all([
         fetchBrowserCores(),
         fetchBrowserProxies(),
         fetchAllTags(),
         fetchGroups(),
         fetchBrowserSettings(),
         fetchBrowserProfileTemplates(),
+        fetchFingerprintSchemes(),
       ])
+      setSchemes(schemeList)
+      const defaultScheme = schemeList.find(s => s.isDefault) || schemeList[0]
       const resolvedDefaultLaunchArgs = resolveDefaultLaunchArgs(settings.defaultLaunchArgs || [])
       setCores(coreList)
       setProxies(proxyList)
@@ -99,7 +130,19 @@ export function BrowserEditPage() {
 
       if (isCreate) {
         const resolved = resolvePoolProxySelection('', '', proxyList)
-        setFormData((prev) => ({ ...prev, proxyId: resolved.proxyId || directProxyID, proxyConfig: '' }))
+        const resolvedDefaultFingerprintArgs = resolveDefaultFingerprintArgs(settings.defaultFingerprintArgs || [])
+        let generated: string[] = []
+        if (defaultScheme) {
+          try { generated = await generateFingerprintSchemeArgs(defaultScheme.schemeId) } catch { generated = [] }
+        }
+        setSchemeId(defaultScheme ? defaultScheme.schemeId : FINGERPRINT_SCHEME_NONE)
+        setFormData((prev) => ({
+          ...prev,
+          fingerprintArgs: generated.length > 0 ? generated : (prev.fingerprintArgs.length > 0 ? prev.fingerprintArgs : resolvedDefaultFingerprintArgs),
+          fingerprintSchemeId: defaultScheme ? defaultScheme.schemeId : FINGERPRINT_SCHEME_NONE,
+          proxyId: resolved.proxyId || directProxyID,
+          proxyConfig: '',
+        }))
         setLaunchArgsText(resolvedDefaultLaunchArgs.join('\n'))
         return
       }
@@ -112,11 +155,14 @@ export function BrowserEditPage() {
         ? ''
         : current.coreId
       const resolvedProxy = resolvePoolProxySelection(current.proxyId || '', current.proxyConfig || '', proxyList)
+      const currentSchemeId = current.fingerprintSchemeId || (defaultScheme ? defaultScheme.schemeId : FINGERPRINT_SCHEME_NONE)
+      setSchemeId(currentSchemeId)
       setFormData({
         profileName: current.profileName,
         userDataDir: current.userDataDir,
         coreId: normalizedCoreId,
         fingerprintArgs: current.fingerprintArgs,
+        fingerprintSchemeId: currentSchemeId,
         proxyId: resolvedProxy.proxyId,
         proxyConfig: resolvedProxy.proxyConfig,
         launchArgs: currentLaunchArgs,
@@ -398,7 +444,24 @@ export function BrowserEditPage() {
         onClose={() => setProxyPickerOpen(false)}
       />
 
-      <Card title="指纹配置" subtitle="配置浏览器指纹参数">
+      <Card title="指纹配置" subtitle="先选指纹方案，再按需微调设备项">
+        <FormItem label="指纹方案" hint="方案固定时区、语言、品牌等必须一致的项；种子、显卡、核心数等设备特征每个窗口单独随机">
+          <div className="flex gap-2">
+            <div className="flex-1 min-w-0">
+              <Select
+                value={schemeId}
+                onChange={e => handleSchemeChange(e.target.value)}
+                options={[
+                  ...schemes.map(s => ({ value: s.schemeId, label: s.isDefault ? `${s.schemeName}（默认）` : s.schemeName })),
+                  { value: FINGERPRINT_SCHEME_NONE, label: '不使用方案（手动配置）' },
+                ]}
+              />
+            </div>
+            {schemeId !== FINGERPRINT_SCHEME_NONE && (
+              <Button type="button" variant="secondary" onClick={() => rerollDevice(schemeId)}>重新随机设备</Button>
+            )}
+          </div>
+        </FormItem>
         <FingerprintPanel
           value={formData.fingerprintArgs}
           onChange={args => handleChange('fingerprintArgs', args)}

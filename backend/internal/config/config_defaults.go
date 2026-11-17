@@ -262,7 +262,7 @@ func DefaultConfig() *Config {
 		Browser: BrowserConfig{
 			UserDataRoot:           "data",
 			DefaultFingerprintArgs: defaultFingerprintArgsForOS(goruntime.GOOS),
-			DefaultLaunchArgs:      []string{"--disable-sync", "--no-first-run"},
+			DefaultLaunchArgs:      []string{"--disable-sync", "--no-first-run", "--disable-speech-api"},
 			DefaultStartURLs:       DefaultBrowserStartURLs(),
 			RestoreLastSession:     true,
 			StartReadyTimeoutMs:    3000,

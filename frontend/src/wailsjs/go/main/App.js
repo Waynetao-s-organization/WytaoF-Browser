@@ -174,6 +174,34 @@ export function BrowserExportCookies(arg1) {
   return window['go']['main']['App']['BrowserExportCookies'](arg1);
 }
 
+export function BrowserFingerprintSchemeApply(arg1, arg2, arg3) {
+  return window['go']['main']['App']['BrowserFingerprintSchemeApply'](arg1, arg2, arg3);
+}
+
+export function BrowserFingerprintSchemeCreate(arg1) {
+  return window['go']['main']['App']['BrowserFingerprintSchemeCreate'](arg1);
+}
+
+export function BrowserFingerprintSchemeDelete(arg1) {
+  return window['go']['main']['App']['BrowserFingerprintSchemeDelete'](arg1);
+}
+
+export function BrowserFingerprintSchemeGenerateArgs(arg1) {
+  return window['go']['main']['App']['BrowserFingerprintSchemeGenerateArgs'](arg1);
+}
+
+export function BrowserFingerprintSchemeList() {
+  return window['go']['main']['App']['BrowserFingerprintSchemeList']();
+}
+
+export function BrowserFingerprintSchemeSetDefault(arg1) {
+  return window['go']['main']['App']['BrowserFingerprintSchemeSetDefault'](arg1);
+}
+
+export function BrowserFingerprintSchemeUpdate(arg1, arg2) {
+  return window['go']['main']['App']['BrowserFingerprintSchemeUpdate'](arg1, arg2);
+}
+
 export function BrowserGetAllTags() {
   return window['go']['main']['App']['BrowserGetAllTags']();
 }

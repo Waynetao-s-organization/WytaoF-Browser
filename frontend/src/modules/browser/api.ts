@@ -1,4 +1,5 @@
 export * from './api/profiles'
+export * from './api/schemes'
 export * from './api/instances'
 export * from './api/settings'
 export * from './api/cores'

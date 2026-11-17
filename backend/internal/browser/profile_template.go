@@ -152,7 +152,11 @@ func (m *Manager) BatchCreate(input ProfileBatchCreateInput) ProfileBatchCreateR
 		if strings.TrimSpace(payload.UserDataDir) != "" && count > 1 {
 			payload.UserDataDir = fmt.Sprintf("%s-%03d", strings.TrimSpace(payload.UserDataDir), i)
 		}
-		if input.RandomizeFingerprintPerProfile {
+		if strings.TrimSpace(payload.FingerprintSchemeId) != FingerprintSchemeNone && (input.RandomizeFingerprintPerProfile || count > 1 || ExtractFingerprintSeed(payload.FingerprintArgs) == "") {
+			m.Mutex.Lock()
+			m.prepareSchemeForNewProfile(&payload, true)
+			m.Mutex.Unlock()
+		} else if input.RandomizeFingerprintPerProfile || (count > 1 && i > 1) {
 			payload.FingerprintArgs = withRandomFingerprintSeed(payload.FingerprintArgs)
 		}
 		profile, err := m.Create(payload)

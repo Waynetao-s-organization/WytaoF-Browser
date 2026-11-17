@@ -17,6 +17,8 @@ func (m *Manager) Create(input ProfileInput) (*Profile, error) {
 
 	now := time.Now().Format(time.RFC3339)
 	profileId := uuid.NewString()
+	m.prepareSchemeForNewProfile(&input, false)
+	input.FingerprintArgs = m.ensureUniqueSeedLocked(input.FingerprintArgs, profileId)
 	userDataDir := strings.TrimSpace(input.UserDataDir)
 	if userDataDir == "" {
 		userDataDir = profileId
@@ -38,6 +40,7 @@ func (m *Manager) Create(input ProfileInput) (*Profile, error) {
 		UserDataDir:     userDataDir,
 		CoreId:          coreId,
 		FingerprintArgs: input.FingerprintArgs,
+		FingerprintSchemeId: strings.TrimSpace(input.FingerprintSchemeId),
 		ProxyId:         resolvedProxy.ProxyId,
 		ProxyConfig:     resolvedProxy.ProxyConfig,
 		LaunchArgs:      input.LaunchArgs,
